@@ -512,6 +512,8 @@ class EntityHeadingMapCard extends HTMLElement {
     this._leafletError = null;
     this._hasSizedMap = false;
     this._activePoint = null;
+    this._viewInitialized = false;
+    this._lastViewSignature = null;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -522,7 +524,9 @@ class EntityHeadingMapCard extends HTMLElement {
         }
 
         ha-card {
+          position: relative;
           overflow: hidden;
+          z-index: 0;
         }
 
         .wrapper {
@@ -609,6 +613,8 @@ class EntityHeadingMapCard extends HTMLElement {
 
         .map-shell {
           position: relative;
+          isolation: isolate;
+          z-index: 0;
         }
 
         .map-shell.preview-mode {
@@ -804,7 +810,23 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   setConfig(config) {
+    const previousConfig = this._config;
     this._config = normalizeCardConfig(config);
+
+    if (
+      !previousConfig ||
+      previousConfig.device_id !== this._config.device_id ||
+      previousConfig.entity !== this._config.entity ||
+      previousConfig.latitude_entity !== this._config.latitude_entity ||
+      previousConfig.longitude_entity !== this._config.longitude_entity ||
+      previousConfig.heading_entity !== this._config.heading_entity ||
+      previousConfig.zoom !== this._config.zoom ||
+      previousConfig.fit_bounds !== this._config.fit_bounds
+    ) {
+      this._viewInitialized = false;
+      this._lastViewSignature = null;
+    }
+
     this._renderShell();
 
     if (this._isPreviewMode()) {
@@ -1193,12 +1215,34 @@ class EntityHeadingMapCard extends HTMLElement {
 
     if (points.length === 1 || this._config.fit_bounds === false) {
       const [point] = points;
-      this._map.setView([point.latitude, point.longitude], this._config.zoom);
+      const signature = `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`;
+
+      if (!this._viewInitialized) {
+        this._map.setView([point.latitude, point.longitude], this._config.zoom);
+        this._viewInitialized = true;
+        this._lastViewSignature = signature;
+        return;
+      }
+
+      if (this._lastViewSignature !== signature) {
+        this._map.panTo([point.latitude, point.longitude]);
+        this._lastViewSignature = signature;
+      }
+
       return;
     }
 
     const bounds = window.L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
-    this._map.fitBounds(bounds, { padding: [24, 24], maxZoom: this._config.zoom });
+    const signature = `multi:${points
+      .map((point) => `${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`)
+      .sort()
+      .join("|")}`;
+
+    if (!this._viewInitialized || this._lastViewSignature !== signature) {
+      this._map.fitBounds(bounds, { padding: [24, 24], maxZoom: this._config.zoom });
+      this._viewInitialized = true;
+      this._lastViewSignature = signature;
+    }
   }
 
   _getPrimaryActionEntityId() {
