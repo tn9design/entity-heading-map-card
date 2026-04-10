@@ -611,6 +611,11 @@ class EntityHeadingMapCard extends HTMLElement {
           position: relative;
         }
 
+        .map-shell.preview-mode {
+          overflow: hidden;
+          border-radius: inherit;
+        }
+
         #map {
           position: relative;
           width: 100%;
@@ -620,6 +625,87 @@ class EntityHeadingMapCard extends HTMLElement {
             radial-gradient(circle at top left, rgba(40, 120, 180, 0.14), transparent 40%),
             linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.06));
         }
+
+        .preview-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 640;
+          overflow: hidden;
+          background:
+            linear-gradient(90deg, transparent 0 17%, rgba(255, 255, 255, 0.92) 17% 20.5%, transparent 20.5% 100%),
+            linear-gradient(0deg, transparent 0 73%, rgba(255, 255, 255, 0.92) 73% 76.5%, transparent 76.5% 100%),
+            linear-gradient(90deg, transparent 0 58%, rgba(255, 255, 255, 0.88) 58% 60.5%, transparent 60.5% 100%),
+            radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.36), transparent 40%),
+            linear-gradient(180deg, #faf8f3, #f3efe8);
+        }
+
+        .preview-overlay[hidden] {
+          display: none;
+        }
+
+        .preview-controls {
+          position: absolute;
+          top: 14px;
+          left: 14px;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 10px;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+        }
+
+        .preview-control {
+          width: 30px;
+          height: 30px;
+          border: 0;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--card-background-color, #ffffff);
+          color: var(--primary-text-color);
+          font: 600 24px/1 system-ui, sans-serif;
+        }
+
+        .preview-control + .preview-control {
+          border-top: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+        }
+
+        .preview-marker {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: max(38px, calc(var(--marker-size, 32px) * 1.2));
+          height: max(38px, calc(var(--marker-size, 32px) * 1.2));
+          transform: translate(-50%, -50%);
+          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+        }
+
+        .preview-marker svg {
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+          transform: rotate(var(--heading, 72deg));
+          transform-origin: 50% 50%;
+        }
+
+        .preview-building {
+          position: absolute;
+          background: rgba(218, 216, 210, 0.78);
+          border-radius: 4px;
+          box-shadow: inset 0 0 0 1px rgba(193, 188, 176, 0.48);
+        }
+
+        .preview-building.b1 { left: 8%; top: 14%; width: 14%; height: 12%; }
+        .preview-building.b2 { left: 9%; top: 34%; width: 12%; height: 15%; }
+        .preview-building.b3 { left: 11%; top: 62%; width: 11%; height: 13%; }
+        .preview-building.b4 { left: 39%; top: 15%; width: 15%; height: 10%; }
+        .preview-building.b5 { left: 41%; top: 40%; width: 18%; height: 12%; }
+        .preview-building.b6 { left: 43%; top: 63%; width: 12%; height: 11%; }
+        .preview-building.b7 { right: 11%; top: 11%; width: 14%; height: 16%; transform: rotate(42deg); }
+        .preview-building.b8 { right: 8%; top: 48%; width: 10%; height: 18%; }
+        .preview-building.b9 { right: 20%; top: 53%; width: 10%; height: 15%; }
+        .preview-building.b10 { left: 64%; top: 23%; width: 8%; height: 12%; }
 
         .marker-layer {
           position: absolute;
@@ -703,6 +789,23 @@ class EntityHeadingMapCard extends HTMLElement {
           </div>
           <div class="map-shell">
             <div id="map"></div>
+            <div id="preview-overlay" class="preview-overlay" hidden>
+              <div class="preview-controls" aria-hidden="true">
+                <div class="preview-control">+</div>
+                <div class="preview-control">−</div>
+              </div>
+              <div class="preview-building b1"></div>
+              <div class="preview-building b2"></div>
+              <div class="preview-building b3"></div>
+              <div class="preview-building b4"></div>
+              <div class="preview-building b5"></div>
+              <div class="preview-building b6"></div>
+              <div class="preview-building b7"></div>
+              <div class="preview-building b8"></div>
+              <div class="preview-building b9"></div>
+              <div class="preview-building b10"></div>
+              <div id="preview-marker" class="preview-marker" aria-hidden="true"></div>
+            </div>
             <div id="message" class="map-message">Loading map…</div>
             <div id="marker-layer" class="marker-layer" aria-hidden="true"></div>
           </div>
@@ -719,6 +822,11 @@ class EntityHeadingMapCard extends HTMLElement {
   setConfig(config) {
     this._config = normalizeCardConfig(config);
     this._renderShell();
+
+    if (this._isPreviewMode()) {
+      return;
+    }
+
     this._syncZoomControl();
     this._initLeaflet();
 
@@ -731,6 +839,11 @@ class EntityHeadingMapCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
+
+    if (this._isPreviewMode()) {
+      return;
+    }
+
     this._updateMap();
   }
 
@@ -739,6 +852,10 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   async _initLeaflet() {
+    if (this._isPreviewMode()) {
+      return;
+    }
+
     try {
       await ensureLeaflet();
       this._leafletReady = true;
@@ -755,7 +872,63 @@ class EntityHeadingMapCard extends HTMLElement {
     const mapEl = this.shadowRoot.getElementById("map");
     mapEl.style.height = normalizeHeight(this._config.height);
     this._applyActionState();
+
+    if (this._isPreviewMode()) {
+      this._renderPreviewState();
+      return;
+    }
+
+    this._clearPreviewState();
     this._updateHeader([]);
+  }
+
+  _isPreviewMode() {
+    return (
+      this._config?.__preview === true &&
+      !this._config?.entity &&
+      !this._config?.device_id &&
+      !this._config?.latitude_entity &&
+      !this._config?.longitude_entity &&
+      !(Array.isArray(this._config?.entities) && this._config.entities.length > 0)
+    );
+  }
+
+  _renderPreviewState() {
+    const cardEl = this.shadowRoot.getElementById("card");
+    const mapShell = this.shadowRoot.querySelector(".map-shell");
+    const previewOverlay = this.shadowRoot.getElementById("preview-overlay");
+    const previewMarker = this.shadowRoot.getElementById("preview-marker");
+    const markerLayer = this.shadowRoot.getElementById("marker-layer");
+    const messageEl = this.shadowRoot.getElementById("message");
+    const headerEl = this.shadowRoot.getElementById("header");
+
+    cardEl.dataset.previewMode = "true";
+    mapShell.classList.add("preview-mode");
+    previewOverlay.hidden = false;
+    markerLayer.hidden = true;
+    messageEl.hidden = true;
+    headerEl.hidden = true;
+    previewMarker.innerHTML = this._getMarkerMarkup("arrow");
+    previewMarker.style.setProperty("--marker-color", normalizeHex(this._config.color));
+    previewMarker.style.setProperty("--heading", "72deg");
+    previewMarker.style.setProperty(
+      "--marker-size",
+      `${Math.max(this._config.marker_size ?? DEFAULT_MARKER_SIZE, 32)}px`
+    );
+  }
+
+  _clearPreviewState() {
+    const cardEl = this.shadowRoot.getElementById("card");
+    const mapShell = this.shadowRoot.querySelector(".map-shell");
+    const previewOverlay = this.shadowRoot.getElementById("preview-overlay");
+    const previewMarker = this.shadowRoot.getElementById("preview-marker");
+    const markerLayer = this.shadowRoot.getElementById("marker-layer");
+
+    delete cardEl.dataset.previewMode;
+    mapShell.classList.remove("preview-mode");
+    previewOverlay.hidden = true;
+    previewMarker.innerHTML = "";
+    markerLayer.hidden = false;
   }
 
   _hasConfiguredSource() {
@@ -1133,6 +1306,10 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   _handleCardTap(event) {
+    if (this._isPreviewMode()) {
+      return;
+    }
+
     if (this._isMapInteractionTarget(event)) {
       return;
     }
@@ -1144,11 +1321,20 @@ class EntityHeadingMapCard extends HTMLElement {
   _handleIconTap(event) {
     event.stopPropagation();
 
+    if (this._isPreviewMode()) {
+      return;
+    }
+
     const actionConfig = normalizeActionConfig(this._config?.icon_tap_action, DEFAULT_ICON_TAP_ACTION.action);
     this._runAction(actionConfig, this._getPrimaryActionEntityId());
   }
 
   _updateMap() {
+    if (this._isPreviewMode()) {
+      this._renderPreviewState();
+      return;
+    }
+
     if (!this._config || !this._hass || !this._leafletReady) {
       return;
     }
@@ -1203,6 +1389,8 @@ class EntityHeadingMapCard extends HTMLElement {
   static getStubConfig() {
     return {
       type: "custom:entity-heading-map-card",
+      __preview: true,
+      height: "220px",
       zoom: DEFAULT_ZOOM,
       show_zoom_controls: true,
       zoom_control_position: "topleft",
@@ -1785,6 +1973,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
   }
 
   _commitConfig(config) {
+    delete config.__preview;
     delete config.subtitle_mode;
     delete config.subtitle_text;
 
@@ -1818,5 +2007,6 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "entity-heading-map-card",
   name: "Entity Heading Map Card",
+  preview: true,
   description: "Shows one or more entities on a map with a directional heading arrow.",
 });
