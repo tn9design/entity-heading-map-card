@@ -1374,7 +1374,7 @@ class EntityHeadingMapCard extends HTMLElement {
     return {
       type: "custom:entity-heading-map-card",
       __preview: true,
-      height: "220px",
+      height: "286px",
       zoom: DEFAULT_ZOOM,
       show_zoom_controls: true,
       zoom_control_position: "topleft",
