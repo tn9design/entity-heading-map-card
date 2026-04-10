@@ -31,6 +31,8 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
 
 ## Installation
 
+[![Open your Home Assistant instance and open the Entity Heading Map Card repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tn9design&repository=entity-heading-map-card)
+
 ### HACS Custom Repository
 
 1. Open `HACS` -> `Custom repositories`.
