@@ -1,6 +1,6 @@
 # Entity Heading Map Card
 
-`entity-heading-map-card` is a Home Assistant Lovelace card for showing one or more entities on a live map with a directional heading arrow.
+`entity-heading-map-card` is a Home Assistant Lovelace card for showing one or more entities on a live map with a directional heading marker.
 
 It is designed for tracked objects such as:
 
@@ -11,34 +11,53 @@ It is designed for tracked objects such as:
 - bikes
 - anything else that exposes coordinates and an optional heading
 
-The card uses Leaflet with OpenStreetMap tiles by default, so there is no API key, account setup, or paid map provider required.
+The card uses Leaflet with CARTO light tiles by default, so there is no API key, account setup, or paid map provider required.
 
 ## Features
 
 - HACS-friendly frontend card
-- OpenStreetMap tiles by default
+- No-key CARTO light map tiles by default
 - Supports one or many entities
-- Rotated heading arrow per entity
+- Rotated heading arrow when heading is available
+- Blue dot fallback when heading is not available
 - Auto-fit bounds for multiple markers
+- Home Assistant UI editor with device auto-discovery
 - Works with either:
   - a single entity that exposes `latitude` and `longitude` as attributes
   - separate entities for latitude, longitude, and heading
-- Configurable marker color, zoom, height, and tile layer
+- Optional header icon and subtitle
+- Configurable tap action and icon tap action
+- Configurable marker color, zoom, height, zoom controls, and tile layer
 
 ## Installation
 
 ### HACS Custom Repository
 
-1. Add this repository to HACS as a `Dashboard` repository.
-2. Install `Entity Heading Map Card`.
-3. Add the resource if HACS does not add it automatically:
-
-```yaml
-url: /hacsfiles/entity-heading-map-card/dist/entity-heading-map-card.js
-type: module
-```
+1. Open `HACS` -> `Custom repositories`.
+2. Add:
+   Repository: `tn9design/entity-heading-map-card`
+   Type: `Dashboard`
+3. Install `Entity Heading Map Card`.
 
 ## Basic Usage
+
+### UI Editor
+
+The built-in Home Assistant card editor can automatically discover compatible devices from the device and entity registries.
+
+- Devices with latitude and longitude are selectable
+- Devices with heading render as arrows
+- Devices without heading render as blue dots
+
+The editor also supports:
+
+- custom title
+- subtitle
+- optional icon
+- tap behavior
+- icon tap behavior
+- zoom and marker sizing
+- zoom button visibility and position
 
 ### Single Entity With Lat/Lon Attributes
 
@@ -83,16 +102,25 @@ entities:
 Top-level options:
 
 - `title`: Optional card title
+- `subtitle`: Optional subtitle shown below the title
+- `icon`: Optional Home Assistant icon shown to the left of the header
 - `height`: Map height in pixels or CSS string. Default: `320px`
 - `zoom`: Default zoom for a single marker. Default: `16`
 - `fit_bounds`: Fit all markers into view when more than one marker is present. Default: `true`
 - `entity`: A single entity with `latitude` and `longitude` attributes
+- `device_id`: Optional device id used by the UI editor to auto-resolve compatible entities
 - `latitude_entity`: Entity whose state is the latitude
 - `longitude_entity`: Entity whose state is the longitude
-- `heading_entity`: Entity whose state is the heading in degrees
+- `heading_entity`: Optional entity whose state is the heading in degrees
 - `color`: Default marker color
-- `tile_url`: Tile URL template. Default: OpenStreetMap standard tile URL
+- `show_zoom_controls`: Show or hide Leaflet zoom buttons. Default: `true`
+- `zoom_control_position`: `topleft`, `topright`, `bottomleft`, or `bottomright`
+- `tap_action`: Card tap action. Default: more-info
+- `icon_tap_action`: Icon tap action. Default: none
+- `tile_url`: Tile URL template. Default: CARTO light tiles
 - `tile_attribution`: Attribution string for the tile layer
+- `tile_subdomains`: Tile subdomain string. Default: `abcd`
+- `show_attribution`: Show or hide map attribution. Default: `false`
 - `entities`: Array of marker definitions
 
 Per-marker options inside `entities`:
@@ -101,13 +129,13 @@ Per-marker options inside `entities`:
 - `entity`: Entity with `latitude` and `longitude` attributes
 - `latitude_entity`: Latitude entity
 - `longitude_entity`: Longitude entity
-- `heading_entity`: Heading entity
+- `heading_entity`: Optional heading entity
 - `color`: Marker color override
 
 ## Notes
 
-- The default heading arrow uses a simple SVG marker rotated clockwise in degrees.
-- If no heading is available, the card still shows the marker without a rotated arrow.
+- The default heading marker uses a rounded SVG arrow rotated clockwise in degrees.
+- If no heading is available, the card shows a blue dot instead of an arrow.
 - For public or large-scale use, consider overriding the default tile layer with a provider appropriate for your usage.
 
 ## Development
