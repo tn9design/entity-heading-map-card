@@ -72,10 +72,10 @@ heading_entity: sensor.my_tracker_heading
 
 ```yaml
 type: custom:entity-heading-map-card
-title: ONYX
-latitude_entity: sensor.onyx_onyx_latitude
-longitude_entity: sensor.onyx_onyx_longitude
-heading_entity: sensor.onyx_onyx_heading
+title: Tesla Model S
+latitude_entity: sensor.tesla_model_s_latitude
+longitude_entity: sensor.tesla_model_s_longitude
+heading_entity: sensor.tesla_model_s_heading
 ```
 
 ### Multiple Markers
@@ -85,15 +85,15 @@ type: custom:entity-heading-map-card
 title: Teslas
 fit_bounds: true
 entities:
-  - name: ONYX
-    latitude_entity: sensor.onyx_onyx_latitude
-    longitude_entity: sensor.onyx_onyx_longitude
-    heading_entity: sensor.onyx_onyx_heading
+  - name: Tesla Model S
+    latitude_entity: sensor.tesla_model_s_latitude
+    longitude_entity: sensor.tesla_model_s_longitude
+    heading_entity: sensor.tesla_model_s_heading
     color: "#3388ff"
-  - name: BARB
-    latitude_entity: sensor.barb_barb_latitude
-    longitude_entity: sensor.barb_barb_longitude
-    heading_entity: sensor.barb_barb_heading
+  - name: Tesla Model 3
+    latitude_entity: sensor.tesla_model_3_latitude
+    longitude_entity: sensor.tesla_model_3_longitude
+    heading_entity: sensor.tesla_model_3_heading
     color: "#ff5a5f"
 ```
 
