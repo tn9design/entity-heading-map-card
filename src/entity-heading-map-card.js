@@ -97,14 +97,14 @@ const LEAFLET_BASE_CSS = `
 
   .leaflet-control {
     position: relative;
-    z-index: 800;
+    z-index: 4;
     pointer-events: auto;
   }
 
   .leaflet-top,
   .leaflet-bottom {
     position: absolute;
-    z-index: 1000;
+    z-index: 5;
     pointer-events: none;
   }
 
@@ -521,10 +521,14 @@ class EntityHeadingMapCard extends HTMLElement {
 
         :host {
           display: block;
+          position: relative;
+          z-index: 0;
+          contain: paint;
         }
 
         ha-card {
           position: relative;
+          isolation: isolate;
           overflow: hidden;
           z-index: 0;
         }
@@ -635,7 +639,7 @@ class EntityHeadingMapCard extends HTMLElement {
         .preview-overlay {
           position: absolute;
           inset: 0;
-          z-index: 640;
+          z-index: 1;
           overflow: hidden;
           background:
             linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.92) 18% 20.4%, transparent 20.4% 100%),
@@ -711,7 +715,7 @@ class EntityHeadingMapCard extends HTMLElement {
           position: absolute;
           inset: 0;
           pointer-events: none;
-          z-index: 700;
+          z-index: 2;
           overflow: hidden;
         }
 
@@ -726,7 +730,7 @@ class EntityHeadingMapCard extends HTMLElement {
           text-align: center;
           background: rgba(28, 30, 35, 0.38);
           backdrop-filter: blur(2px);
-          z-index: 650;
+          z-index: 3;
         }
 
         .map-message[hidden] {
