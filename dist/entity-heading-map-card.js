@@ -632,10 +632,12 @@ class EntityHeadingMapCard extends HTMLElement {
           z-index: 640;
           overflow: hidden;
           background:
-            linear-gradient(90deg, transparent 0 17%, rgba(255, 255, 255, 0.92) 17% 20.5%, transparent 20.5% 100%),
-            linear-gradient(0deg, transparent 0 73%, rgba(255, 255, 255, 0.92) 73% 76.5%, transparent 76.5% 100%),
-            linear-gradient(90deg, transparent 0 58%, rgba(255, 255, 255, 0.88) 58% 60.5%, transparent 60.5% 100%),
-            radial-gradient(circle at 15% 18%, rgba(255, 255, 255, 0.36), transparent 40%),
+            linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.92) 18% 20.4%, transparent 20.4% 100%),
+            linear-gradient(0deg, transparent 0 73%, rgba(255, 255, 255, 0.92) 73% 75.8%, transparent 75.8% 100%),
+            linear-gradient(90deg, transparent 0 57%, rgba(255, 255, 255, 0.88) 57% 59.2%, transparent 59.2% 100%),
+            linear-gradient(33deg, transparent 0 78%, rgba(255, 255, 255, 0.86) 78% 80.2%, transparent 80.2% 100%),
+            radial-gradient(circle at 22% 28%, rgba(208, 230, 202, 0.38), transparent 18%),
+            radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.35), transparent 18%),
             linear-gradient(180deg, #faf8f3, #f3efe8);
         }
 
@@ -689,23 +691,15 @@ class EntityHeadingMapCard extends HTMLElement {
           transform-origin: 50% 50%;
         }
 
-        .preview-building {
-          position: absolute;
-          background: rgba(218, 216, 210, 0.78);
-          border-radius: 4px;
-          box-shadow: inset 0 0 0 1px rgba(193, 188, 176, 0.48);
+        .preview-marker .arrow-shape {
+          fill: var(--marker-color, #3388ff);
+          stroke: var(--marker-color, #3388ff);
+          stroke-width: 1.8;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          vector-effect: non-scaling-stroke;
+          opacity: 1;
         }
-
-        .preview-building.b1 { left: 8%; top: 14%; width: 14%; height: 12%; }
-        .preview-building.b2 { left: 9%; top: 34%; width: 12%; height: 15%; }
-        .preview-building.b3 { left: 11%; top: 62%; width: 11%; height: 13%; }
-        .preview-building.b4 { left: 39%; top: 15%; width: 15%; height: 10%; }
-        .preview-building.b5 { left: 41%; top: 40%; width: 18%; height: 12%; }
-        .preview-building.b6 { left: 43%; top: 63%; width: 12%; height: 11%; }
-        .preview-building.b7 { right: 11%; top: 11%; width: 14%; height: 16%; transform: rotate(42deg); }
-        .preview-building.b8 { right: 8%; top: 48%; width: 10%; height: 18%; }
-        .preview-building.b9 { right: 20%; top: 53%; width: 10%; height: 15%; }
-        .preview-building.b10 { left: 64%; top: 23%; width: 8%; height: 12%; }
 
         .marker-layer {
           position: absolute;
@@ -794,16 +788,6 @@ class EntityHeadingMapCard extends HTMLElement {
                 <div class="preview-control">+</div>
                 <div class="preview-control">−</div>
               </div>
-              <div class="preview-building b1"></div>
-              <div class="preview-building b2"></div>
-              <div class="preview-building b3"></div>
-              <div class="preview-building b4"></div>
-              <div class="preview-building b5"></div>
-              <div class="preview-building b6"></div>
-              <div class="preview-building b7"></div>
-              <div class="preview-building b8"></div>
-              <div class="preview-building b9"></div>
-              <div class="preview-building b10"></div>
               <div id="preview-marker" class="preview-marker" aria-hidden="true"></div>
             </div>
             <div id="message" class="map-message">Loading map…</div>
