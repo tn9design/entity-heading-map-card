@@ -41,20 +41,20 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
 
 ### How HACS Installs This Card
 
-HACS installs the repository under `www/community/entity-heading-map-card/`, but the actual dashboard file it uses is:
+HACS installs the repository under `www/community/entity-heading-map-card/`, and the dashboard file it uses is:
 
-`dist/entity-heading-map-card.js`
+`entity-heading-map-card.js`
 
 That file is selected by `hacs.json`:
 
 ```json
 {
   "content_in_root": false,
-  "filename": "dist/entity-heading-map-card.js"
+  "filename": "entity-heading-map-card.js"
 }
 ```
 
-So it is normal to see supporting files like `README.md`, `src/`, `scripts/`, and `package.json` in the installed folder even though Home Assistant only loads the built JavaScript file at runtime.
+So it is normal to see supporting files like `README.md`, `src/`, `scripts/`, and `package.json` in the installed folder even though Home Assistant only loads the published JavaScript file at runtime.
 
 ## Basic Usage
 
