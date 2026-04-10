@@ -3,12 +3,10 @@
 [![Version](https://img.shields.io/badge/version-v0.1.0-1e88e5?style=flat-square)](https://github.com/tn9design/entity-heading-map-card)
 [![HACS Default](https://img.shields.io/badge/HACS-Default-fc8d3d?style=flat-square)](https://www.hacs.xyz/)
 
-<p align="center">
-  <img src="images/example_01.png" alt="Entity Heading Map Card preview" width="760" />
+`entity-heading-map-card` is a Home Assistant Lovelace card for showing one or more entities on a live map with a directional heading marker and various customization options.
+<p align="left">
+  <img src="images/example_01.png" alt="Entity Heading Map Card preview" width="400" />
 </p>
-
-`entity-heading-map-card` is a Home Assistant Lovelace card for showing one or more entities on a live map with a directional heading marker.
-
 It is designed for tracked objects such as:
 
 - vehicles
@@ -19,6 +17,8 @@ It is designed for tracked objects such as:
 - anything else that exposes coordinates and an optional heading
 
 The card uses Leaflet with CARTO light tiles by default, so there is no API key, account setup, or paid map provider required.
+
+
 
 ## Features
 
@@ -123,11 +123,11 @@ entities:
     color: "#ff5a5f"
 ```
 
+<table border="0" cellpadding="0" cellspacing="0" style="border:none;">
+  <tr>
+    <td valign="top" style="border:none;">
+      
 ## Configuration
-
-<p align="center">
-  <img src="images/example_02.png" alt="Entity Heading Map Card editor options" width="720" />
-</p>
 
 Top-level options:
 
@@ -152,6 +152,13 @@ Top-level options:
 - `tile_subdomains`: Tile subdomain string. Default: `abcd`
 - `show_attribution`: Show or hide map attribution. Default: `false`
 - `entities`: Array of marker definitions
+
+</td>
+    <td valign="top">
+      <img src="images/example_02.png" alt="Entity Heading Map Card editor options" width="500" />
+    </td>
+  </tr>
+</table>
 
 Per-marker options inside `entities`:
 
