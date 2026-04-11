@@ -1,6 +1,6 @@
-# Advanced Map Card 3000
+# Advanced Map Card 3,000
 
-<p align="center">
+<p align="left">
   <a href="https://github.com/tn9design/entity-heading-map-card">
     <img src="https://img.shields.io/badge/version-v0.1.0-1e88e5?style=flat-square" alt="Version" />
   </a>
@@ -9,13 +9,10 @@
   </a>
 </p>
 
-<p align="center">
-  <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
-</p>
-
-<p align="center">
+<p align="left">
   A polished Home Assistant Lovelace map card for showing one or more tracked entities with a directional heading marker.
 </p>
+
 It is designed for tracked objects such as:
 
 - vehicles
@@ -26,6 +23,11 @@ It is designed for tracked objects such as:
 - anything else that exposes coordinates and an optional heading
 
 The card uses Leaflet with CARTO light tiles by default, so there is no API key, account setup, or paid map provider required.
+
+<p align="left">
+  <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
+</p>
+
 ## Why This Card
 
 - Built for vehicles, people, and anything else that exposes coordinates with an optional heading
@@ -141,7 +143,7 @@ entities:
 
 ## Configuration
 
-<img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="320" align="right" style="border-radius: 8px;" />
+<img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="550" align="right" style="border-radius: 8px;" />
 
 The built-in editor is organized the same way the card is typically configured in Home Assistant.
 
