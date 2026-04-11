@@ -141,9 +141,7 @@ entities:
 
 ## Configuration
 
-<div style="float: right; width: 360px; margin: 0 0 16px 20px; border-radius: 8px; overflow: hidden; line-height: 0;">
-  <img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="360" style="display: block;" />
-</div>
+<img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="320" align="right" style="border-radius: 8px;" />
 
 The built-in editor is organized the same way the card is typically configured in Home Assistant.
 
