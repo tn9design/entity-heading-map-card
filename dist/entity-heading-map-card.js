@@ -2038,7 +2038,7 @@ if (!customElements.get("entity-heading-map-card-editor")) {
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "entity-heading-map-card",
-  name: "Entity Heading Map Card",
+  name: "Advanced Map Card 3000",
   preview: true,
   description: "Shows one or more entities on a map with a directional heading arrow.",
 });

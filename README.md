@@ -1,11 +1,20 @@
-# Entity Heading Map Card
+# Advanced Map Card 3000
 
-[![Version](https://img.shields.io/badge/version-v0.1.0-1e88e5?style=flat-square)](https://github.com/tn9design/entity-heading-map-card)
-[![HACS Default](https://img.shields.io/badge/HACS-Default-fc8d3d?style=flat-square)](https://www.hacs.xyz/)
+<p align="center">
+  <a href="https://github.com/tn9design/entity-heading-map-card">
+    <img src="https://img.shields.io/badge/version-v0.1.0-1e88e5?style=flat-square" alt="Version" />
+  </a>
+  <a href="https://www.hacs.xyz/">
+    <img src="https://img.shields.io/badge/HACS-Default-fc8d3d?style=flat-square" alt="HACS Default" />
+  </a>
+</p>
 
-`entity-heading-map-card` is a Home Assistant Lovelace card for showing one or more entities on a live map with a directional heading marker and various customization options.
-<p align="left">
-  <img src="images/example_01.png" alt="Entity Heading Map Card preview" width="400" />
+<p align="center">
+  <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
+</p>
+
+<p align="center">
+  A polished Home Assistant Lovelace map card for showing one or more tracked entities with a directional heading marker.
 </p>
 It is designed for tracked objects such as:
 
@@ -17,8 +26,13 @@ It is designed for tracked objects such as:
 - anything else that exposes coordinates and an optional heading
 
 The card uses Leaflet with CARTO light tiles by default, so there is no API key, account setup, or paid map provider required.
+## Why This Card
 
-
+- Built for vehicles, people, and anything else that exposes coordinates with an optional heading
+- Looks native in Home Assistant instead of feeling like a bolted-on map widget
+- Works with a single entity, split latitude/longitude sensors, or multi-entity map layouts
+- Falls back gracefully to a blue dot when heading data is unavailable
+- Includes a modern Home Assistant editor with device auto-discovery
 
 ## Features
 
@@ -38,17 +52,19 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
 
 ## Installation
 
-[![Open your Home Assistant instance and open the Entity Heading Map Card repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tn9design&repository=entity-heading-map-card)
+[![Open your Home Assistant instance and open the Advanced Map Card 3000 repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tn9design&repository=entity-heading-map-card)
 
-### HACS Custom Repository
+The easiest path is to open the repository directly in HACS using the button above.
+
+#### HACS Custom Repository
 
 1. Open `HACS` -> `Custom repositories`.
 2. Add:
    Repository: `tn9design/entity-heading-map-card`
    Type: `Dashboard`
-3. Install `Entity Heading Map Card`.
+3. Install `Advanced Map Card 3000`.
 
-### How HACS Installs This Card
+#### How HACS Installs This Card
 
 HACS installs the repository under `www/community/entity-heading-map-card/`, and the dashboard file it uses is:
 
@@ -65,9 +81,9 @@ That file is selected by `hacs.json`:
 
 So it is normal to see supporting files like `README.md`, `src/`, `scripts/`, and `package.json` in the installed folder even though Home Assistant only loads the published JavaScript file at runtime.
 
-## Basic Usage
+## Quick Start
 
-### UI Editor
+#### UI Editor
 
 The built-in Home Assistant card editor can automatically discover compatible devices from the device and entity registries.
 
@@ -85,7 +101,7 @@ The editor also supports:
 - zoom and marker sizing
 - zoom button visibility and position
 
-### Single Entity With Lat/Lon Attributes
+#### Single Entity With Lat/Lon Attributes
 
 ```yaml
 type: custom:entity-heading-map-card
@@ -94,7 +110,7 @@ entity: device_tracker.my_tracker
 heading_entity: sensor.my_tracker_heading
 ```
 
-### One Marker Using Separate Entities
+#### One Marker Using Separate Entities
 
 ```yaml
 type: custom:entity-heading-map-card
@@ -104,7 +120,7 @@ longitude_entity: sensor.tesla_model_s_longitude
 heading_entity: sensor.tesla_model_s_heading
 ```
 
-### Multiple Markers
+#### Multiple Markers
 
 ```yaml
 type: custom:entity-heading-map-card
@@ -123,44 +139,61 @@ entities:
     color: "#ff5a5f"
 ```
 
-<table border="0" cellpadding="0" cellspacing="0" style="border:none;">
-  <tr>
-    <td valign="top" style="border:none;">
-      
 ## Configuration
 
-Top-level options:
+<div style="float: right; width: 520px; margin: 0 0 16px 24px; border-radius: 8px; overflow: hidden; line-height: 0;">
+  <img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="520" style="display: block;" />
+</div>
 
-- `title`: Optional card title
-- `subtitle`: Optional subtitle shown below the title
-- `icon`: Optional Home Assistant icon shown to the left of the header
-- `height`: Map height in pixels or CSS string. Default: `320px`
-- `zoom`: Default zoom for a single marker. Default: `16`
-- `fit_bounds`: Fit all markers into view when more than one marker is present. Default: `true`
-- `entity`: A single entity with `latitude` and `longitude` attributes
-- `device_id`: Optional device id used by the UI editor to auto-resolve compatible entities
-- `latitude_entity`: Entity whose state is the latitude
-- `longitude_entity`: Entity whose state is the longitude
-- `heading_entity`: Optional entity whose state is the heading in degrees
-- `color`: Default marker color
-- `show_zoom_controls`: Show or hide Leaflet zoom buttons. Default: `true`
-- `zoom_control_position`: `topleft`, `topright`, `bottomleft`, or `bottomright`
-- `tap_action`: Card tap action. Default: more-info
-- `icon_tap_action`: Icon tap action. Default: none
-- `tile_url`: Tile URL template. Default: CARTO light tiles
-- `tile_attribution`: Attribution string for the tile layer
-- `tile_subdomains`: Tile subdomain string. Default: `abcd`
-- `show_attribution`: Show or hide map attribution. Default: `false`
-- `entities`: Array of marker definitions
+The built-in editor is organized the same way the card is typically configured in Home Assistant.
 
-</td>
-    <td valign="top">
-      <img src="images/example_02.png" alt="Entity Heading Map Card editor options" width="500" />
-    </td>
-  </tr>
-</table>
+#### Device
 
-Per-marker options inside `entities`:
+- `device_id`: Device selected in the editor. The card auto-discovers devices that expose latitude and longitude.
+- Devices with heading render as arrows.
+- Devices without heading render as blue dots.
+
+#### Content
+
+- `title`: Optional card title. If omitted, the selected device name is used.
+- `subtitle`: Optional subtitle shown below the title.
+- `icon`: Optional Home Assistant icon shown to the left of the header.
+
+#### Interactions
+
+- `tap_action`: Card tap action. Default: `more-info`.
+- `icon_tap_action`: Icon tap action. Default: `none`.
+
+#### Features
+
+- `height`: Map height in pixels or CSS string. Default: `320px`.
+- `zoom`: Default zoom for a single marker. Default: `16`.
+- `marker_size`: Marker size in pixels. Default: `32`.
+- `zoom_control_position`: `topleft`, `topright`, `bottomleft`, or `bottomright`.
+- `show_zoom_controls`: Show or hide Leaflet zoom buttons. Default: `true`.
+- `color`: Default marker color.
+
+<div style="clear: both;"></div>
+
+## Additional Options
+
+#### YAML-Only Source Options
+
+- `entity`: A single entity with `latitude` and `longitude` attributes.
+- `latitude_entity`: Entity whose state is the latitude.
+- `longitude_entity`: Entity whose state is the longitude.
+- `heading_entity`: Optional entity whose state is the heading in degrees.
+- `fit_bounds`: Fit all markers into view when more than one marker is present. Default: `true`.
+- `entities`: Array of marker definitions for multi-marker layouts.
+
+#### Advanced Tile Options
+
+- `tile_url`: Tile URL template. Default: CARTO light tiles.
+- `tile_attribution`: Attribution string for the tile layer.
+- `tile_subdomains`: Tile subdomain string. Default: `abcd`.
+- `show_attribution`: Show or hide map attribution. Default: `false`.
+
+#### Per-Marker Options
 
 - `name`: Marker label
 - `entity`: Entity with `latitude` and `longitude` attributes
@@ -174,6 +207,27 @@ Per-marker options inside `entities`:
 - The default heading marker uses a rounded SVG arrow rotated clockwise in degrees.
 - If no heading is available, the card shows a blue dot instead of an arrow.
 - For public or large-scale use, consider overriding the default tile layer with a provider appropriate for your usage.
+
+## Planned Enhancements
+
+The following enhancements are under consideration for future releases as the card continues to evolve.
+
+- [ ] Manual entity mapping for latitude, longitude, and heading so users can combine values from multiple entities when no single compatible device exists.
+- [ ] Multi-entity map support for showing several tracked objects on the same card at once.
+- [ ] Richer subtitle options, including support for dynamic entity-driven values and custom labels.
+- [ ] Header styling controls for icon, title, and subtitle colors.
+- [ ] Optional header visibility for a cleaner map-only presentation.
+- [ ] A recenter control that restores the default map view after the map has been moved or zoomed.
+- [ ] Custom interactions for the map marker itself, including marker tap actions.
+- [ ] Optional speed display for devices that expose motion or speed data, with support for conditional visibility while moving.
+- [ ] Satellite tile support for advanced users who want to provide their own credentials or API keys.
+- [ ] Custom SVG marker support for replacing the default arrow with a user-supplied icon.
+
+## Compatibility
+
+- Home Assistant Lovelace dashboard card
+- HACS default repository
+- Leaflet-based frontend card with no external API key required for the default setup
 
 ## Development
 
