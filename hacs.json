@@ -1,6 +1,6 @@
 {
   "name": "Advanced Map Card 3000",
   "content_in_root": false,
-  "filename": "entity-heading-map-card.js",
+  "filename": "dist/entity-heading-map-card.js",
   "render_readme": true
 }

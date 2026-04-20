@@ -3,12 +3,12 @@ import path from "node:path";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
 const packageJsonPath = path.join(rootDir, "package.json");
-const srcPath = path.join(rootDir, "src", "entity-heading-map-card.js");
 const distDir = path.join(rootDir, "dist");
 const distPath = path.join(distDir, "entity-heading-map-card.js");
 
 const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-const src = await readFile(srcPath, "utf8");
+const sourcePath = path.join(rootDir, "src", "entity-heading-map-card.js");
+const src = await readFile(sourcePath, "utf8");
 
 const timestampFormatter = new Intl.DateTimeFormat("sv-SE", {
   year: "numeric",

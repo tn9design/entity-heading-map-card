@@ -1,4 +1,4 @@
-# Advanced Map Card 3,000
+# Advanced Map Card 3000
 
 <p align="left">
   <a href="https://github.com/tn9design/entity-heading-map-card">
@@ -70,14 +70,14 @@ The easiest path is to open the repository directly in HACS using the button abo
 
 HACS installs the repository under `www/community/entity-heading-map-card/`, and the dashboard file it uses is:
 
-`entity-heading-map-card.js`
+`dist/entity-heading-map-card.js`
 
 That file is selected by `hacs.json`:
 
 ```json
 {
   "content_in_root": false,
-  "filename": "entity-heading-map-card.js"
+  "filename": "dist/entity-heading-map-card.js"
 }
 ```
 
@@ -96,12 +96,15 @@ The built-in Home Assistant card editor can automatically discover compatible de
 The editor also supports:
 
 - custom title
-- subtitle
+- subtitle modes
 - optional icon
+- optional header visibility
 - tap behavior
 - icon tap behavior
+- speedometer and speed-based auto zoom
+- style presets
 - zoom and marker sizing
-- zoom button visibility and position
+- zoom button placement
 
 #### Single Entity With Lat/Lon Attributes
 
@@ -156,8 +159,14 @@ The built-in editor is organized the same way the card is typically configured i
 #### Content
 
 - `title`: Optional card title. If omitted, the selected device name is used.
-- `subtitle`: Optional subtitle shown below the title.
 - `icon`: Optional Home Assistant icon shown to the left of the header.
+- `show_header`: Show or hide the entire header area. Default: `true`.
+- `subtitle_mode`: Controls how the subtitle is generated.
+- `subtitle`: Custom subtitle text used by `custom_text` mode.
+- `subtitle_entity`: Explicit entity source used by `custom_entity`, `speed`, and `speed_or_parked`.
+- `subtitle_label`: Optional label prefix for `custom_entity`.
+- `subtitle_suffix`: Optional value suffix such as `mph`, `knots`, or `ft`.
+- `subtitle_fallback`: Fallback text when the selected subtitle mode has no value to show.
 
 #### Interactions
 
@@ -166,12 +175,10 @@ The built-in editor is organized the same way the card is typically configured i
 
 #### Features
 
-- `height`: Map height in pixels or CSS string. Default: `320px`.
-- `zoom`: Default zoom for a single marker. Default: `16`.
-- `marker_size`: Marker size in pixels. Default: `32`.
-- `zoom_control_position`: `topleft`, `topright`, `bottomleft`, or `bottomright`.
-- `show_zoom_controls`: Show or hide Leaflet zoom buttons. Default: `true`.
 - `color`: Default marker color.
+- `speed_entity`: Explicit Home Assistant entity used for the speedometer and speed-based auto zoom.
+- `show_speedometer`: Show a speed badge while the selected speed entity is moving. Default: `false`.
+- `auto_zoom_by_speed`: Adjust zoom automatically in 20 mph bands while the selected speed entity is moving. Default: `false`.
 
 <div style="clear: both;"></div>
 
@@ -188,10 +195,19 @@ The built-in editor is organized the same way the card is typically configured i
 
 #### Advanced Tile Options
 
-- `tile_url`: Tile URL template. Default: CARTO light tiles.
+- `tile_url`: Tile URL template. Default: CARTO light tiles, with automatic CARTO dark tiles when Home Assistant dark mode is active.
 - `tile_attribution`: Attribution string for the tile layer.
 - `tile_subdomains`: Tile subdomain string. Default: `abcd`.
 - `show_attribution`: Show or hide map attribution. Default: `false`.
+
+#### Advanced Map Settings
+
+- `height`: Map height in pixels or CSS string. Default: `320px`.
+- `zoom`: Default zoom for a single marker. Default: `19`.
+- `marker_size`: Marker size in pixels. Default: `32`.
+- `zoom_control_position`: `topleft`, `bottomleft`, `bottomright`, or `hidden`.
+- `show_zoom_controls`: Legacy toggle support. The visual editor now uses `zoom_control_position: hidden`.
+- `style_preset`: Visual shell style. Options: `default`, `mushroom`.
 
 #### Per-Marker Options
 
@@ -206,6 +222,7 @@ The built-in editor is organized the same way the card is typically configured i
 
 - The default heading marker uses a rounded SVG arrow rotated clockwise in degrees.
 - If no heading is available, the card shows a blue dot instead of an arrow.
+- The built-in tile layer follows Home Assistant light/dark mode automatically unless you override `tile_url`.
 - For public or large-scale use, consider overriding the default tile layer with a provider appropriate for your usage.
 
 ## Planned Enhancements

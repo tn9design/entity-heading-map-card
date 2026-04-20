@@ -1,7 +1,7 @@
 {
   "name": "entity-heading-map-card",
   "version": "0.1.0",
-  "description": "A Home Assistant Lovelace card that shows entities on a map with a heading arrow.",
+  "description": "A Home Assistant Lovelace map card with heading-aware markers, subtitle modes, and speed-based overlays.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs"
