@@ -4,6 +4,11 @@ let leafletPromise;
 
 const DEFAULT_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 const DEFAULT_DARK_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const DEFAULT_VOYAGER_TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+const DEFAULT_LIGHT_NOLABELS_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png";
+const DEFAULT_DARK_NOLABELS_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
+const DEFAULT_VOYAGER_NOLABELS_TILE_URL =
+  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png";
 const DEFAULT_TILE_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO";
 const DEFAULT_MARKER_COLOR = "#3388ff";
 const DEFAULT_CARD_HEIGHT = "320px";
@@ -14,6 +19,8 @@ const DEFAULT_TAP_ACTION = Object.freeze({ action: "more-info" });
 const DEFAULT_ICON_TAP_ACTION = Object.freeze({ action: "none" });
 const ZOOM_CONTROL_POSITIONS = new Set(["topleft", "bottomleft", "bottomright", "hidden"]);
 const STYLE_PRESETS = new Set(["default", "mushroom"]);
+const TILE_STYLE_PRESETS = new Set(["default", "dark", "voyager"]);
+const TILE_STYLE_EDITOR_OPTIONS = new Set(["default", "dark", "voyager", "custom"]);
 const SUBTITLE_MODES = new Set([
   "none",
   "custom_text",
@@ -364,6 +371,42 @@ const parsePixelHeight = (value) => {
   return null;
 };
 
+const inferTileStyleFromUrl = (tileUrl) => {
+  const normalizedUrl = firstNonEmptyString(tileUrl) || "";
+
+  if ([DEFAULT_VOYAGER_TILE_URL, DEFAULT_VOYAGER_NOLABELS_TILE_URL].includes(normalizedUrl)) {
+    return "voyager";
+  }
+
+  if ([DEFAULT_DARK_TILE_URL, DEFAULT_DARK_NOLABELS_TILE_URL].includes(normalizedUrl)) {
+    return "dark";
+  }
+
+  if ([DEFAULT_TILE_URL, DEFAULT_LIGHT_NOLABELS_TILE_URL].includes(normalizedUrl)) {
+    return "default";
+  }
+
+  return null;
+};
+
+const inferShowMapLabelsFromUrl = (tileUrl) => {
+  const normalizedUrl = firstNonEmptyString(tileUrl) || "";
+
+  if (
+    [DEFAULT_LIGHT_NOLABELS_TILE_URL, DEFAULT_DARK_NOLABELS_TILE_URL, DEFAULT_VOYAGER_NOLABELS_TILE_URL].includes(
+      normalizedUrl
+    )
+  ) {
+    return false;
+  }
+
+  if ([DEFAULT_TILE_URL, DEFAULT_DARK_TILE_URL, DEFAULT_VOYAGER_TILE_URL].includes(normalizedUrl)) {
+    return true;
+  }
+
+  return null;
+};
+
 const normalizeActionConfig = (value, fallbackAction) => {
   if (!value || typeof value !== "object") {
     return { action: fallbackAction };
@@ -640,43 +683,84 @@ const buildCompatibleDevices = (devices, entities, hass) => {
     .sort((left, right) => left.label.localeCompare(right.label));
 };
 
-const normalizeCardConfig = (config = {}) => ({
-  ...config,
-  zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
-  fit_bounds: config.fit_bounds !== false,
-  height: normalizeHeight(config.height),
-  color: normalizeHex(config.color),
-  marker_size: asNumber(config.marker_size) ?? DEFAULT_MARKER_SIZE,
-  tile_url: config.tile_url || DEFAULT_TILE_URL,
-  tile_attribution: config.tile_attribution || DEFAULT_TILE_ATTRIBUTION,
-  tile_subdomains: config.tile_subdomains || "abcd",
-  show_attribution: config.show_attribution === true,
-  show_zoom_controls: config.zoom_control_position === "hidden" ? false : config.show_zoom_controls !== false,
-  show_speedometer: config.show_speedometer === true,
-  auto_zoom_by_speed: config.auto_zoom_by_speed === true,
-  show_header: config.show_header !== false,
-  zoom_control_position:
-    config.show_zoom_controls === false
-      ? "hidden"
-      : normalizeSelectValue(config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft"),
-  subtitle: firstNonEmptyString(config.subtitle, config.subtitle_text) || "",
-  subtitle_mode: normalizeSelectValue(
-    config.subtitle_mode,
-    SUBTITLE_MODES,
-    firstNonEmptyString(config.subtitle, config.subtitle_text) ? "custom_text" : "none"
-  ),
-  speed_entity: firstNonEmptyString(config.speed_entity) || "",
-  subtitle_entity: firstNonEmptyString(config.subtitle_entity) || "",
-  subtitle_label: firstNonEmptyString(config.subtitle_label) || "",
-  subtitle_suffix: firstNonEmptyString(config.subtitle_suffix) || "",
-  subtitle_fallback: firstNonEmptyString(config.subtitle_fallback) || "",
-  icon: firstNonEmptyString(config.icon) || "",
-  style_preset: normalizeSelectValue(config.style_preset, STYLE_PRESETS, "mushroom"),
-});
+const normalizeCardConfig = (config = {}) => {
+  const tileUrl = firstNonEmptyString(config.tile_url) || "";
+  const inferredTileStyle = inferTileStyleFromUrl(tileUrl);
+  const inferredShowMapLabels = inferShowMapLabelsFromUrl(tileUrl);
 
-const isBuiltInTileUrl = (value) => [DEFAULT_TILE_URL, DEFAULT_DARK_TILE_URL].includes(firstNonEmptyString(value) || "");
+  return {
+    ...config,
+    zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
+    fit_bounds: config.fit_bounds !== false,
+    height: normalizeHeight(config.height),
+    color: normalizeHex(config.color),
+    marker_size: asNumber(config.marker_size) ?? DEFAULT_MARKER_SIZE,
+    tile_url: tileUrl,
+    tile_attribution: config.tile_attribution || DEFAULT_TILE_ATTRIBUTION,
+    tile_subdomains: config.tile_subdomains || "abcd",
+    show_attribution: config.show_attribution === true,
+    show_map_labels:
+      typeof inferredShowMapLabels === "boolean" && config.show_map_labels === undefined
+        ? inferredShowMapLabels
+        : config.show_map_labels !== false,
+    show_zoom_controls: config.zoom_control_position === "hidden" ? false : config.show_zoom_controls !== false,
+    show_speedometer: config.show_speedometer === true,
+    auto_zoom_by_speed: config.auto_zoom_by_speed === true,
+    show_header: config.show_header !== false,
+    zoom_control_position:
+      config.show_zoom_controls === false
+        ? "hidden"
+        : normalizeSelectValue(config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft"),
+    subtitle: firstNonEmptyString(config.subtitle, config.subtitle_text) || "",
+    subtitle_mode: normalizeSelectValue(
+      config.subtitle_mode,
+      SUBTITLE_MODES,
+      firstNonEmptyString(config.subtitle, config.subtitle_text) ? "custom_text" : "none"
+    ),
+    speed_entity: firstNonEmptyString(config.speed_entity) || "",
+    subtitle_entity: firstNonEmptyString(config.subtitle_entity) || "",
+    subtitle_label: firstNonEmptyString(config.subtitle_label) || "",
+    subtitle_suffix: firstNonEmptyString(config.subtitle_suffix) || "",
+    subtitle_fallback: firstNonEmptyString(config.subtitle_fallback) || "",
+    icon: firstNonEmptyString(config.icon) || "",
+    style_preset: normalizeSelectValue(config.style_preset, STYLE_PRESETS, "mushroom"),
+    tile_style: normalizeSelectValue(
+      config.tile_style,
+      TILE_STYLE_EDITOR_OPTIONS,
+      tileUrl && !isBuiltInTileUrl(tileUrl) ? "custom" : inferredTileStyle || "default"
+    ),
+  };
+};
+
+const isBuiltInTileUrl = (value) =>
+  [
+    DEFAULT_TILE_URL,
+    DEFAULT_DARK_TILE_URL,
+    DEFAULT_VOYAGER_TILE_URL,
+    DEFAULT_LIGHT_NOLABELS_TILE_URL,
+    DEFAULT_DARK_NOLABELS_TILE_URL,
+    DEFAULT_VOYAGER_NOLABELS_TILE_URL,
+  ].includes(firstNonEmptyString(value) || "");
 const normalizeTileSubdomains = (value) =>
   Array.isArray(value) ? value.join("") : firstNonEmptyString(value, "") || "";
+const getResolvedBuiltInTileUrl = (tileStyle, darkMode, showMapLabels) => {
+  const normalizedStyle = normalizeSelectValue(tileStyle, TILE_STYLE_PRESETS, "default");
+  const labelsEnabled = showMapLabels !== false;
+
+  if (normalizedStyle === "dark") {
+    return labelsEnabled ? DEFAULT_DARK_TILE_URL : DEFAULT_DARK_NOLABELS_TILE_URL;
+  }
+
+  if (normalizedStyle === "voyager") {
+    return labelsEnabled ? DEFAULT_VOYAGER_TILE_URL : DEFAULT_VOYAGER_NOLABELS_TILE_URL;
+  }
+
+  if (darkMode) {
+    return labelsEnabled ? DEFAULT_DARK_TILE_URL : DEFAULT_DARK_NOLABELS_TILE_URL;
+  }
+
+  return labelsEnabled ? DEFAULT_TILE_URL : DEFAULT_LIGHT_NOLABELS_TILE_URL;
+};
 
 class EntityHeadingMapCard extends HTMLElement {
   constructor() {
@@ -1333,12 +1417,22 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   _getResolvedTileUrl() {
-    const configuredUrl = firstNonEmptyString(this._config?.tile_url) || DEFAULT_TILE_URL;
-    if (!isBuiltInTileUrl(configuredUrl)) {
+    const configuredUrl = firstNonEmptyString(this._config?.tile_url);
+    const tileStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
+
+    if (tileStyle === "custom" && configuredUrl) {
       return configuredUrl;
     }
 
-    return this._hass?.themes?.darkMode ? DEFAULT_DARK_TILE_URL : DEFAULT_TILE_URL;
+    if (configuredUrl === DEFAULT_VOYAGER_TILE_URL) {
+      return DEFAULT_VOYAGER_TILE_URL;
+    }
+
+    return getResolvedBuiltInTileUrl(
+      this._config?.tile_style,
+      this._hass?.themes?.darkMode === true,
+      this._config?.show_map_labels
+    );
   }
 
   _syncTileLayer() {
@@ -2104,6 +2198,8 @@ class EntityHeadingMapCard extends HTMLElement {
       marker_size: DEFAULT_MARKER_SIZE,
       color: DEFAULT_MARKER_COLOR,
       style_preset: "mushroom",
+      tile_style: "default",
+      show_map_labels: true,
       subtitle_mode: "none",
       tap_action: { action: "more-info" },
       icon_tap_action: { action: "none" },
@@ -2348,7 +2444,22 @@ class EntityHeadingMapCardEditor extends HTMLElement {
               <ha-selector id="marker_size"></ha-selector>
               <ha-select id="zoom_control_position" label="Zoom In/Out buttons"></ha-select>
             </div>
-            <ha-select id="style_preset" label="Style Preset"></ha-select>
+            <div class="row">
+              <ha-select id="tile_style" label="Map Style"></ha-select>
+              <ha-select id="style_preset" label="Card Style"></ha-select>
+            </div>
+            <div id="map_labels_card" class="toggle-card">
+              <div class="toggle-copy">
+                <div class="toggle-label">Show map labels</div>
+                <div class="toggle-description">Built-in map styles only. Turn street and place labels on or off.</div>
+              </div>
+              <ha-switch id="show_map_labels"></ha-switch>
+            </div>
+            <ha-textfield
+              id="tile_url"
+              label="Custom Tile URL"
+              placeholder="e.g. https://tiles.example.com/{z}/{x}/{y}.png"
+            ></ha-textfield>
           </div>
         </ha-expansion-panel>
       </div>
@@ -2374,6 +2485,10 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       markerSize: this.shadowRoot.getElementById("marker_size"),
       speedEntity: this.shadowRoot.getElementById("speed_entity"),
       zoomControlPosition: this.shadowRoot.getElementById("zoom_control_position"),
+      tileStyle: this.shadowRoot.getElementById("tile_style"),
+      mapLabelsCard: this.shadowRoot.getElementById("map_labels_card"),
+      showMapLabels: this.shadowRoot.getElementById("show_map_labels"),
+      tileUrl: this.shadowRoot.getElementById("tile_url"),
       stylePreset: this.shadowRoot.getElementById("style_preset"),
       showSpeedometer: this.shadowRoot.getElementById("show_speedometer"),
       autoZoomBySpeed: this.shadowRoot.getElementById("auto_zoom_by_speed"),
@@ -2418,6 +2533,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       this._refs.subtitleSuffix,
       this._refs.subtitleFallback,
       this._refs.color,
+      this._refs.tileUrl,
     ]) {
       field.addEventListener("change", (event) => this._handleFieldChange(event));
     }
@@ -2463,6 +2579,19 @@ class EntityHeadingMapCardEditor extends HTMLElement {
           normalizeSelectValue(event.detail.value, ZOOM_CONTROL_POSITIONS, "topleft") !== "hidden",
       })
     );
+    this._refs.tileStyle.addEventListener("selected", (event) => {
+      const nextValue = normalizeSelectValue(event.detail.value, TILE_STYLE_EDITOR_OPTIONS, "default");
+      const config = { ...this._config, tile_style: nextValue };
+
+      if (nextValue !== "custom") {
+        delete config.tile_url;
+      }
+
+      this._commitConfig(config);
+    });
+    this._refs.showMapLabels.addEventListener("change", (event) =>
+      this._updateConfigValue("show_map_labels", event.target.checked)
+    );
     this._refs.stylePreset.addEventListener("selected", (event) =>
       this._updateConfigValue("style_preset", normalizeSelectValue(event.detail.value, STYLE_PRESETS, "mushroom"))
     );
@@ -2489,6 +2618,12 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       { value: "bottomleft", label: "Bottom Left" },
       { value: "bottomright", label: "Bottom Right" },
       { value: "hidden", label: "Hidden" },
+    ];
+    this._refs.tileStyle.options = [
+      { value: "default", label: "Default (Auto light/dark)" },
+      { value: "dark", label: "Dark" },
+      { value: "voyager", label: "Voyager" },
+      { value: "custom", label: "Custom URL" },
     ];
     this._refs.stylePreset.options = [
       { value: "default", label: "Default" },
@@ -2706,6 +2841,11 @@ class EntityHeadingMapCardEditor extends HTMLElement {
         ? "hidden"
         : normalizeSelectValue(this._config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft")
     );
+    this._setControlValue(this._refs.tileStyle, this._getTileStyleSelection());
+    if (!this._isControlFocused(this._refs.showMapLabels)) {
+      this._refs.showMapLabels.checked = this._config.show_map_labels !== false;
+    }
+    this._setControlValue(this._refs.tileUrl, this._config.tile_url || "");
     this._setControlValue(this._refs.stylePreset, normalizeSelectValue(this._config.style_preset, STYLE_PRESETS, "mushroom"));
     if (!this._isControlFocused(this._refs.showSpeedometer)) {
       this._refs.showSpeedometer.checked = this._config.show_speedometer === true;
@@ -2718,6 +2858,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       this._refs.colorPicker.value = normalizeHex(this._config.color);
     }
     this._syncSubtitleEditorState();
+    this._syncTileStyleEditorState();
     this._updateActionEditorContext();
   }
 
@@ -2747,6 +2888,45 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     applyVisibility(this._refs.subtitleLabel, usesLabel);
     applyVisibility(this._refs.subtitleSuffix, usesSuffix);
     applyVisibility(this._refs.subtitleFallback, usesFallback);
+    this._syncTileStyleEditorState();
+  }
+
+  _syncTileStyleEditorState() {
+    if (!this._rendered) {
+      return;
+    }
+
+    const tileStyle = this._getTileStyleSelection();
+    const showTileUrl = tileStyle === "custom";
+    const showMapLabels = tileStyle !== "custom";
+
+    this._refs.tileUrl.hidden = !showTileUrl;
+    this._refs.tileUrl.style.display = showTileUrl ? "" : "none";
+    this._refs.mapLabelsCard.hidden = !showMapLabels;
+    this._refs.mapLabelsCard.style.display = showMapLabels ? "" : "none";
+  }
+
+  _getTileStyleSelection() {
+    const configuredUrl = firstNonEmptyString(this._config?.tile_url);
+    const configuredStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
+
+    if (configuredStyle === "custom") {
+      return "custom";
+    }
+
+    if (configuredUrl && !isBuiltInTileUrl(configuredUrl)) {
+      return "custom";
+    }
+
+    if (configuredUrl === DEFAULT_VOYAGER_TILE_URL) {
+      return "voyager";
+    }
+
+    if (configuredUrl === DEFAULT_DARK_TILE_URL) {
+      return "dark";
+    }
+
+    return normalizeSelectValue(configuredStyle, TILE_STYLE_EDITOR_OPTIONS, "default");
   }
 
   _isControlFocused(control) {
@@ -2875,6 +3055,20 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       const normalizedColor = normalizeHex(rawValue);
       this._refs.colorPicker.value = normalizedColor;
       this._updateConfigValue("color", normalizedColor);
+      return;
+    }
+
+    if (field === "tile_url") {
+      const config = { ...this._config, tile_style: "custom" };
+      const normalizedUrl = firstNonEmptyString(rawValue);
+
+      if (normalizedUrl) {
+        config.tile_url = normalizedUrl;
+      } else {
+        delete config.tile_url;
+      }
+
+      this._commitConfig(config);
     }
   }
 

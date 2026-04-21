@@ -22,7 +22,7 @@ It is designed for tracked objects such as:
 - bikes
 - anything else that exposes coordinates and an optional heading
 
-The card uses Leaflet with CARTO light tiles by default, so there is no API key, account setup, or paid map provider required.
+The card uses Leaflet with built-in CARTO tile styles by default, so there is no API key, account setup, or paid map provider required.
 
 <p align="left">
   <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
@@ -39,7 +39,7 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
 ## Features
 
 - HACS-friendly frontend card
-- No-key CARTO light map tiles by default
+- No-key CARTO map styles with built-in light/dark switching
 - Supports one or many entities
 - Rotated heading arrow when heading is available
 - Blue dot fallback when heading is not available
@@ -50,7 +50,8 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
   - separate entities for latitude, longitude, and heading
 - Optional header icon and subtitle
 - Configurable tap action and icon tap action
-- Configurable marker color, zoom, height, zoom controls, and tile layer
+- Speedometer and speed-based auto zoom for single-device cards
+- Configurable marker color, zoom, height, zoom controls, card style, map style, and tile layer
 
 ## Installation
 
@@ -58,7 +59,13 @@ The card uses Leaflet with CARTO light tiles by default, so there is no API key,
 
 The easiest path is to open the repository directly in HACS using the button above.
 
-#### HACS Custom Repository
+#### HACS Install
+
+1. Open `HACS`.
+2. Search for `Advanced Map Card 3000`.
+3. Install the card and hard refresh the browser after HACS finishes.
+
+If the repository does not appear yet because local HACS metadata is stale, you can still add it manually:
 
 1. Open `HACS` -> `Custom repositories`.
 2. Add:
@@ -102,9 +109,11 @@ The editor also supports:
 - tap behavior
 - icon tap behavior
 - speedometer and speed-based auto zoom
-- style presets
+- card and map style controls
+- built-in map label toggle
 - zoom and marker sizing
 - zoom button placement
+- custom tile URL entry in the visual editor
 
 #### Single Entity With Lat/Lon Attributes
 
@@ -195,7 +204,7 @@ The built-in editor is organized the same way the card is typically configured i
 
 #### Advanced Tile Options
 
-- `tile_url`: Tile URL template. Default: CARTO light tiles, with automatic CARTO dark tiles when Home Assistant dark mode is active.
+- `tile_url`: Tile URL template. Used when `tile_style` is set to `custom`.
 - `tile_attribution`: Attribution string for the tile layer.
 - `tile_subdomains`: Tile subdomain string. Default: `abcd`.
 - `show_attribution`: Show or hide map attribution. Default: `false`.
@@ -207,6 +216,8 @@ The built-in editor is organized the same way the card is typically configured i
 - `marker_size`: Marker size in pixels. Default: `32`.
 - `zoom_control_position`: `topleft`, `bottomleft`, `bottomright`, or `hidden`.
 - `show_zoom_controls`: Legacy toggle support. The visual editor now uses `zoom_control_position: hidden`.
+- `tile_style`: Built-in map style. Options: `default`, `dark`, `voyager`, or `custom`.
+- `show_map_labels`: Show or hide map labels for built-in styles. Default: `true`.
 - `style_preset`: Visual shell style. Options: `default`, `mushroom`.
 
 #### Per-Marker Options
@@ -222,21 +233,18 @@ The built-in editor is organized the same way the card is typically configured i
 
 - The default heading marker uses a rounded SVG arrow rotated clockwise in degrees.
 - If no heading is available, the card shows a blue dot instead of an arrow.
-- The built-in tile layer follows Home Assistant light/dark mode automatically unless you override `tile_url`.
+- The built-in `default` map style follows Home Assistant light/dark mode automatically.
+- The built-in `dark` and `voyager` map styles can also be used explicitly, with labels optionally turned off in the visual editor.
+- Choosing `Custom URL` in the visual editor exposes a tile URL field for third-party raster tile providers.
 - For public or large-scale use, consider overriding the default tile layer with a provider appropriate for your usage.
 
 ## Planned Enhancements
 
 The following enhancements are under consideration for future releases as the card continues to evolve.
 
-- [ ] Manual entity mapping for latitude, longitude, and heading so users can combine values from multiple entities when no single compatible device exists.
-- [ ] Multi-entity map support for showing several tracked objects on the same card at once.
-- [ ] Richer subtitle options, including support for dynamic entity-driven values and custom labels.
 - [ ] Header styling controls for icon, title, and subtitle colors.
-- [ ] Optional header visibility for a cleaner map-only presentation.
 - [ ] A recenter control that restores the default map view after the map has been moved or zoomed.
 - [ ] Custom interactions for the map marker itself, including marker tap actions.
-- [ ] Optional speed display for devices that expose motion or speed data, with support for conditional visibility while moving.
 - [ ] Satellite tile support for advanced users who want to provide their own credentials or API keys.
 - [ ] Custom SVG marker support for replacing the default arrow with a user-supplied icon.
 
