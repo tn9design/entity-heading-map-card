@@ -24762,7 +24762,13 @@ var LEAFLET_BASE_CSS = `
     margin: 0 12px 12px;
   }
 
+  .leaflet-bottom.leaflet-right {
+    max-width: calc(100% - 60px);
+  }
+
   .leaflet-control-attribution {
+    max-width: calc(100% - 24px);
+    box-sizing: border-box;
     background: rgb(28, 30, 35);
     opacity: var(--attribution-opacity, 1);
     color: #fff;
