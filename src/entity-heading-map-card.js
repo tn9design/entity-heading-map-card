@@ -3088,6 +3088,13 @@ class EntityHeadingMapCardEditor extends HTMLElement {
           --expansion-panel-content-padding: 0;
         }
 
+        .image-library summary, .image-options button { display: flex; align-items: center; gap: 12px; padding: 10px; cursor: pointer; }
+        .image-library { border: 1px solid var(--divider-color); border-radius: 8px; margin-bottom: 12px; }
+        .image-library img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px; border-radius: 4px; }
+        .image-library span { overflow-wrap: anywhere; text-align: left; }
+        .image-options { max-height: 320px; overflow-y: auto; }
+        .image-options button { width: 100%; border: 0; background: var(--card-background-color); color: var(--primary-text-color); font: inherit; }
+        .image-options button:hover, .image-options button[aria-pressed="true"] { background: var(--secondary-background-color); }
         textarea { width: 100%; min-height: 110px; box-sizing: border-box; color: var(--primary-text-color); background: var(--card-background-color); }
         input[type="search"] { padding: 12px; color: var(--primary-text-color); background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px; }
         .panel-content {
@@ -3244,8 +3251,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
             </div>
             <ha-select id="marker_type" label="Marker type"></ha-select>
             <div id="image_controls">
-              <ha-select id="day_library" label="Day Image From HA Library"></ha-select>
-              <ha-select id="night_library" label="Night Image From HA Library"></ha-select>
+              <details id="day_library" class="image-library"><summary>Day Image From HA Library</summary><div class="image-options"></div></details>
+              <details id="night_library" class="image-library"><summary>Night Image From HA Library</summary><div class="image-options"></div></details>
               <label>Choose Day Image <input type="file" id="day_upload" accept="image/png,image/webp" /></label>
               <label>Choose Night Image <input type="file" id="night_upload" accept="image/png,image/webp" /></label>
               <div id="upload_status" class="helper" role="status"></div>
@@ -3400,9 +3407,6 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       });
     }
 
-    for (const [id, field] of [["day_library", "marker_image"], ["night_library", "marker_image_night"]]) {
-      this.shadowRoot.getElementById(id).addEventListener("selected", e => this._updateConfigValue(field, e.detail.value || ""));
-    }
     const widthControl = this.shadowRoot.getElementById("max_width");
     widthControl.label = "Maximum Width (0 = Fill Available Space)";
     widthControl.selector = { number: { min: 0, max: 2400, step: 1, mode: "box", unit_of_measurement: "px" } };
@@ -3620,16 +3624,41 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._imageLibraryLoaded = true;
     try {
       const images = await this._hass.callWS({type: "image/list"});
-      for (const [id, field] of [["day_library", "marker_image"], ["night_library", "marker_image_night"]]) {
-        const control = this.shadowRoot.getElementById(id);
-        const options = images.map(image => ({value: `/api/image/serve/${image.id}/original`, label: image.name}));
-        const current = this._config[field];
-        if (current && !options.some(option => option.value === current)) options.unshift({value:current, label:"Current Image"});
-        control.options = [{value:"",label:"None"}, ...options];
-        this._setControlValue(control, current || "");
-      }
+      this._libraryImages = images;
+      this._renderImageLibrary();
     } catch {
       this.shadowRoot.getElementById("upload_status").textContent = "HA image library unavailable. You can still choose a file to upload.";
+    }
+  }
+
+  _renderImageLibrary() {
+    if (!this._rendered) return;
+    for (const [id, field, title] of [["day_library", "marker_image", "Day Image"], ["night_library", "marker_image_night", "Night Image"]]) {
+      const picker = this.shadowRoot.getElementById(id);
+      const current = this._config[field] || "";
+      const options = (this._libraryImages || []).map(image => ({url:`/api/image/serve/${image.id}/original`, name:image.name}));
+      if (current && !options.some(image => image.url === current)) options.unshift({url:current, name:"Current Image"});
+      const makeImage = url => {
+        const img = document.createElement("img");
+        if (/^(\/|https?:\/\/)/i.test(url)) img.src = url;
+        img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+        return img;
+      };
+      const summary = picker.querySelector("summary");
+      summary.replaceChildren();
+      if (current) summary.append(makeImage(current));
+      const caption = document.createElement("span");
+      caption.textContent = `${title}: ${options.find(image => image.url === current)?.name || "None"}`;
+      summary.append(caption);
+      const list = picker.querySelector(".image-options"); list.replaceChildren();
+      for (const image of [{url:"",name:"None"}, ...options]) {
+        const button = document.createElement("button"); button.type = "button";
+        button.setAttribute("aria-pressed", String(image.url === current));
+        if (image.url) button.append(makeImage(image.url));
+        const label = document.createElement("span"); label.textContent = image.name; button.append(label);
+        button.addEventListener("click", () => { picker.open = false; this._updateConfigValue(field, image.url); });
+        list.append(button);
+      }
     }
   }
 
@@ -3896,8 +3925,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._setControlValue(this._refs.markerImageMode, this._config.marker_image_mode || "auto");
     this._setControlValue(this._refs.markerImage, this._config.marker_image || "");
     this._setControlValue(this._refs.markerImageNight, this._config.marker_image_night || "");
-    this._setControlValue(this.shadowRoot.getElementById("day_library"), this._config.marker_image || "", true);
-    this._setControlValue(this.shadowRoot.getElementById("night_library"), this._config.marker_image_night || "", true);
+    this._renderImageLibrary();
     this._setControlValue(this._refs.markerImageSize, this._config.marker_image_size ?? 80, true);
     this._refs.imageControls.hidden = this._config.marker_type !== "image";
     this._setControlValue(this._refs.attributionOpacity, this._config.attribution_opacity ?? 100, true);
