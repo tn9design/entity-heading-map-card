@@ -24397,7 +24397,7 @@ async function createHaBackground({ L: L3, map, hass, dark, labels, onStatus, in
     try {
       await session.refresh();
       if (disposed) return;
-      if (mode === "vector" && appliedStyle && previous === session.token) gl3?.setStyle(structuredClone(appliedStyle));
+      if (mode === "vector" && appliedStyle && previous === session.token) gl3?.setStyle(structuredClone(appliedStyle), { diff: false });
     } catch {
       status("HA map temporarily unavailable. Reconnecting\u2026");
     }
@@ -24408,7 +24408,7 @@ async function createHaBackground({ L: L3, map, hass, dark, labels, onStatus, in
       layer.options.token = session.token;
       layer.redraw();
     }
-    if (mode === "vector" && appliedStyle) gl3?.setStyle(structuredClone(appliedStyle));
+    if (mode === "vector" && appliedStyle) gl3?.setStyle(structuredClone(appliedStyle), { diff: false });
   };
   session.listeners.add(tokenUpdated);
   const visibility = () => {

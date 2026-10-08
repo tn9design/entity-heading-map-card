@@ -14,9 +14,16 @@ Implemented on `codex/ha-vector-map`, based on the published v0.2.0 baseline. St
 - CARTO marker-update baseline compared using intercepted synthetic tiles; HA movement leaves its vector instances intact. Phone-sized 390×844 browser layout, pan/recenter, resize and zoom controls pass.
 - Normal and beta builds, JavaScript syntax, `git diff --check`, and dependency audit pass. Dependency license notices are embedded in both artifacts.
 
+## Follow-up live testing
+
+- User tested the staged beta in the Home Assistant app on an iPhone: pan/zoom, recenter, approximately one minute in the background, reopen and repeat controls. User reported that all seemed fine. iOS and app versions were not recorded.
+- Separate Chromium test browser was frozen for 55 seconds through CDP and resumed against the real HA map service: both original vector instances were retained, with one canvas and marker per card. This tests execution suspension, not a physical phone's OS lifecycle. The in-app browser and automated Chromium tab switches continued to report visible, so those tab switches are not counted as a real hidden/visible test.
+- Live soak completed with two synthetic vehicles against the real HA map proxy. Initial token fetch: 2026-10-08 11:33:06.514 UTC; natural scheduled refresh: 11:53:06.735 UTC. The server token had changed. Fresh zoom-12 tiles subsequently loaded successfully, and the browser observed two distinct URL tokens without recording their values. Both original vector instances remained, with one canvas per card and two shared workers. The monitor recorded 24 sanitized samples. Brief tile-loading samples retained rendered features and alignment; no unexpected map-network failures occurred.
+- A follow-up real HTTP-403 tile-failure fixture exposed a recovery defect: token refresh succeeded, but identical-style diffing retried no tiles and both maps had zero rendered features. The fix forces full style reload (`diff: false`) for token/reconnect/auth recovery. The regression test now verifies rejected tiles are retried and both maps regain rendered features, along with shared refresh throttling and pending style changes. The unchanged 20-minute schedule was verified before this targeted fix; a second full timed soak of the fix was not performed.
+
 ## Remaining live checks
 
-- Physical phone/WebView behavior, background/resume and a live session spanning token rotation. Timer/reconnect behavior has fixture coverage; that is not a completed live soak.
+- The iPhone background/resume check above passed by user report; a longer phone-background interval has not been tested.
 - Newer HA header-token behavior has fixture coverage, not live coverage on another HA version.
 - Normal driving/GPS jitter has not been tested in a moving vehicle.
 

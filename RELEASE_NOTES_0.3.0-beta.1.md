@@ -8,4 +8,6 @@ When vector rendering is unavailable, HA raster maps preserve markers and contro
 
 The renderer, worker and CSS are bundled into the usual single HACS JavaScript artifact. MapLibre 6.4.1 replaces the originally planned 5.24.0 because the older release has an attribution-sanitizer security advisory (GHSA-jrc7-96c5-q579); Leaflet adapter 0.1.4 is retained.
 
+Rejected map-tile requests now force a source/style reload after token recovery, so an identical style does not leave failed tiles blank.
+
 This remains an initial beta. The broader editor redesign and default HACS catalog submission are deferred. This file is a release draft; no public release or production replacement has been performed.

@@ -147,13 +147,13 @@ export async function createHaBackground({ L, map, hass, dark, labels, onStatus,
     if (disposed || Date.now() - lastRecovery < 30000) return;
     lastRecovery = Date.now();
     const previous = session.token;
-    try { await session.refresh(); if (disposed) return; if (mode === "vector" && appliedStyle && previous === session.token) gl?.setStyle(structuredClone(appliedStyle)); }
+    try { await session.refresh(); if (disposed) return; if (mode === "vector" && appliedStyle && previous === session.token) gl?.setStyle(structuredClone(appliedStyle), { diff: false }); }
     catch { status("HA map temporarily unavailable. Reconnecting…"); }
   };
   const tokenUpdated = () => {
     if (disposed) return;
     if (mode === "raster" && layer) { layer.options.token = session.token; layer.redraw(); }
-    if (mode === "vector" && appliedStyle) gl?.setStyle(structuredClone(appliedStyle));
+    if (mode === "vector" && appliedStyle) gl?.setStyle(structuredClone(appliedStyle), { diff: false });
   };
   session.listeners.add(tokenUpdated);
   const visibility = () => { if (!document.hidden) { recover(); if (contextLost) scheduleContextFallback(); } };
