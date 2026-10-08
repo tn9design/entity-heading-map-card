@@ -311,3 +311,7 @@ Without WebGL or workers, or after unrecovered WebGL context loss, the card uses
 `npm run build:beta` creates an isolated `entity-heading-map-card-beta.js`, registered as `custom:entity-heading-map-card-beta` with a separate editor. `npm run build` creates the normal HACS artifact. Both use esbuild; install dependencies with `npm ci` first. This release remains beta; default HACS catalog submission is deferred.
 
 The deterministic browser fixture uses synthetic vehicle positions and a loopback relay to HA's map service. On this macOS test host, `npm run test:browser:serve` obtains the existing HA credential from Keychain without printing it. Open `http://127.0.0.1:8768/`; run the functions in `tests/vector-browser-*.js` with Playwright CLI `run-code`. Recovery tests reload the page; record their results before proceeding. The relay is for local testing only and does not change entities.
+
+### Satellite Imagery
+
+Choose **Satellite (MapTiler)** under **Map Style & Layout**, then enter your own [MapTiler API key](https://cloud.maptiler.com/). This uses the documented `satellite-v4` XYZ tile service, preserves vehicle markers and controls, and displays the provider credits and logo. The key is masked in the editor but stored in the dashboard configuration and accessible to its users. Account limits and origin restrictions apply. Satellite imagery does not use the HA map theme or street-label toggle. Native imagery requests stop at zoom 18 and are enlarged at higher card zoom levels. Live imagery validation requires a valid personal key.

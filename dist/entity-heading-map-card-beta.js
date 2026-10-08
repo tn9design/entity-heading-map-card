@@ -25129,7 +25129,7 @@ var normalizeCardConfig = (config = {}) => {
   );
   return {
     ...config,
-    map_provider: normalizeSelectValue(config.map_provider, /* @__PURE__ */ new Set(["home_assistant", "carto", "custom"]), tileStyle === "custom" ? "custom" : "carto"),
+    map_provider: normalizeSelectValue(config.map_provider, /* @__PURE__ */ new Set(["home_assistant", "carto", "satellite", "custom"]), tileStyle === "custom" ? "custom" : "carto"),
     map_theme: normalizeSelectValue(config.map_theme, /* @__PURE__ */ new Set(["auto", "light", "dark"]), "auto"),
     zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
     fit_bounds: config.fit_bounds !== false,
@@ -25993,7 +25993,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
     cardEl.style.marginInline = "auto";
     this.shadowRoot.getElementById("icon-button").style.background = this._config.header_icon_background || "";
     this.shadowRoot.getElementById("icon").style.color = this._config.header_icon_color || "";
-    mapEl.style.setProperty("--attribution-opacity", String(this._config.attribution_opacity / 100));
+    mapEl.style.setProperty("--attribution-opacity", String(this._config.map_provider === "satellite" ? 1 : this._config.attribution_opacity / 100));
     this._syncThemeState();
     this._applyActionState();
     if (this._isPreviewMode()) {
@@ -26184,6 +26184,9 @@ var EntityHeadingMapCard = class extends HTMLElement {
     this._map.on("zoom viewreset move resize", () => this._redrawMarkers());
   }
   _getResolvedTileUrl() {
+    if (this._config.map_provider === "satellite") {
+      return `https://api.maptiler.com/tiles/satellite-v4/{z}/{x}/{y}?key=${encodeURIComponent(firstNonEmptyString(this._config.maptiler_api_key) || "")}`;
+    }
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
     const tileStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
     if ((this._config.map_provider === "custom" || !this._config.map_provider && tileStyle === "custom") && configuredUrl) {
@@ -26252,16 +26255,22 @@ var EntityHeadingMapCard = class extends HTMLElement {
       this._haBackground = null;
       this._haBackgroundPending = false;
     }
+    if (this._config.map_provider === "satellite" && !firstNonEmptyString(this._config.maptiler_api_key)) {
+      this._tileLayer?.remove();
+      this._tileLayer = null;
+      this._setProviderStatus("Add your MapTiler API key in Map Style & Layout to use satellite imagery.");
+      return;
+    }
     this._setProviderStatus("");
     const baseUrl = this._getResolvedTileUrl();
     this._map.attributionControl?.setPrefix(false);
     const isCarto = isCartoTileUrl(baseUrl);
-    if (isCarto && !this._map.attributionControl) {
+    if ((isCarto || this._config.map_provider === "satellite") && !this._map.attributionControl) {
       this._map.attributionControl = window.L.control.attribution({ prefix: false }).addTo(this._map);
     }
     const resolvedUrl = withCartoApiKey(baseUrl, this._config.carto_api_key);
-    const attribution = isCarto ? DEFAULT_TILE_ATTRIBUTION : this._config.tile_attribution;
-    const maxNativeZoom = isCarto ? 18 : 20;
+    const attribution = this._config.map_provider === "satellite" ? '<a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener noreferrer">\xA9 MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">\xA9 OpenStreetMap contributors</a> <a href="https://www.maptiler.com" target="_blank" rel="noopener noreferrer"><img src="https://api.maptiler.com/resources/logo.svg" alt="MapTiler" style="width:72px;height:18px;vertical-align:middle"></a>' : isCarto ? DEFAULT_TILE_ATTRIBUTION : this._config.tile_attribution;
+    const maxNativeZoom = isCarto || this._config.map_provider === "satellite" ? 18 : 20;
     const subdomains = this._config.tile_subdomains;
     const maxZoom = 20;
     const currentSubdomains = this._tileLayer ? normalizeTileSubdomains(this._tileLayer.options.subdomains) : "";
@@ -26275,6 +26284,12 @@ var EntityHeadingMapCard = class extends HTMLElement {
         maxNativeZoom,
         subdomains
       }).addTo(this._map);
+      if (this._config.map_provider === "satellite") {
+        this._tileLayer.on?.("tileerror", () => this._setProviderStatus("Satellite imagery could not load. Check your MapTiler key, allowed origins and usage limits."));
+        this._tileLayer.on?.("load", () => {
+          if (this._config.map_provider === "satellite") this._setProviderStatus("");
+        });
+      }
       return;
     }
     if (this._tileLayer._url !== resolvedUrl) {
@@ -27154,6 +27169,12 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
           --expansion-panel-content-padding: 0;
         }
 
+        .entity-picker { border: 1px solid var(--divider-color); border-radius: 8px; }
+        .entity-picker summary { padding: 12px; cursor: pointer; }
+        .entity-options { max-height: 300px; overflow-y: auto; }
+        .entity-options button { width: 100%; text-align: left; padding: 10px 12px; border: 0; color: var(--primary-text-color); background: var(--card-background-color); cursor: pointer; font: inherit; }
+        .entity-options button:hover, .entity-options button[aria-pressed="true"] { background: var(--secondary-background-color); }
+        .entity-context { display: block; color: var(--secondary-text-color); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; margin-top: 3px; }
         #image_controls { display: flex; flex-direction: column; gap: 12px; }
         .replace-image { align-self: flex-end; margin-top: -8px; padding: 6px 10px; border: 0; border-radius: 6px; background: var(--secondary-background-color); color: var(--primary-color); cursor: pointer; font: inherit; font-size: 13px; }
         .image-settings { display: flex; flex-direction: column; gap: 12px; }
@@ -27272,8 +27293,12 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <ha-select id="device" label="Device"></ha-select>
             <div id="device_helper" class="helper"></div>
             <input id="vehicle_entity_search" type="search" aria-label="Search Vehicle Entities" placeholder="Search Vehicle Entities" />
-            <ha-select id="speed_entity" label="Speed Entity"></ha-select>
-            <ha-select id="gear_entity" label="Gear / Shift State (Optional)"></ha-select>
+            <details id="entity" class="entity-picker"><summary>Location Entity</summary><div class="entity-options"></div></details>
+<details id="heading_entity" class="entity-picker"><summary>Heading Entity</summary><div class="entity-options"></div></details>
+<details id="speed_entity" class="entity-picker"><summary>Speed Entity</summary><div class="entity-options"></div></details>
+<details id="gear_entity" class="entity-picker"><summary>Gear / Shift State</summary><div class="entity-options"></div></details>
+<details id="latitude_entity" class="entity-picker"><summary>Latitude Entity</summary><div class="entity-options"></div></details>
+<details id="longitude_entity" class="entity-picker"><summary>Longitude Entity</summary><div class="entity-options"></div></details>
             <div class="helper">Selected vehicle entities appear first. Integration and entity ID distinguish similar names.</div>
             <div id="speed_entity_helper" class="helper">Used by speed subtitle, speedometer, and auto zoom.</div>
           </div>
@@ -27396,6 +27421,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div id="carto_key_helper" class="helper">
               Built-in maps need a free CARTO key. <a href="https://www.carto.com/basemaps/apikey/" target="_blank" rel="noopener noreferrer">Get your key</a>, then paste it here. Stored in this dashboard configuration; accessible to its users. Required map attribution stays visible.
             </div>
+            <ha-selector id="maptiler_api_key" label="MapTiler API Key"></ha-selector>
+            <div id="maptiler_key_helper" class="helper">Satellite imagery needs a MapTiler key. <a href="https://cloud.maptiler.com/" target="_blank" rel="noopener noreferrer">Get Your Key</a>, then paste it here. Provider usage limits apply. Stored in this dashboard configuration; accessible to its users.</div>
             <ha-selector
               id="tile_url"
               label="Custom Tile URL"
@@ -27403,7 +27430,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             ></ha-selector>
             <div id="tile_url_helper" class="helper">Shown only for Custom URL map style.</div>
             <ha-selector id="attribution_opacity"></ha-selector>
-            <div class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
+            <div id="attribution_helper" class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
             <div class="row"><ha-selector id="height"></ha-selector><ha-selector id="max_width" label="Maximum Width"></ha-selector></div><div class="helper">Height sets the map height. Maximum width centers the card within its dashboard space. Custom widths have a 280 px minimum; 0 fills available space.</div>
           </div>
         </ha-expansion-panel>
@@ -27463,12 +27490,14 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       attributionOpacity: this.shadowRoot.getElementById("attribution_opacity"),
       cartoApiKey: this.shadowRoot.getElementById("carto_api_key"),
       cartoKeyHelper: this.shadowRoot.getElementById("carto_key_helper"),
+      maptilerApiKey: this.shadowRoot.getElementById("maptiler_api_key"),
+      maptilerKeyHelper: this.shadowRoot.getElementById("maptiler_key_helper"),
       tileUrl: this.shadowRoot.getElementById("tile_url"),
       tileUrlHelper: this.shadowRoot.getElementById("tile_url_helper")
     };
-    for (const control of [this._refs.title, this._refs.subtitle, this._refs.subtitleLabel, this._refs.subtitleSuffix, this._refs.subtitleFallback, this._refs.color, this._refs.cartoApiKey, this._refs.tileUrl, this._refs.markerImage, this._refs.markerImageNight]) {
+    for (const control of [this._refs.title, this._refs.subtitle, this._refs.subtitleLabel, this._refs.subtitleSuffix, this._refs.subtitleFallback, this._refs.color, this._refs.cartoApiKey, this._refs.maptilerApiKey, this._refs.tileUrl, this._refs.markerImage, this._refs.markerImageNight]) {
       control.label = control.getAttribute("label");
-      control.selector = { text: { type: control.id === "carto_api_key" ? "password" : "text" } };
+      control.selector = { text: { type: ["carto_api_key", "maptiler_api_key"].includes(control.id) ? "password" : "text" } };
       control.addEventListener("value-changed", (event) => {
         if (control.id === "marker_image" || control.id === "marker_image_night") {
           this._updateConfigValue(control.id, String(event.detail.value || "").trim());
@@ -27522,8 +27551,6 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._refs.iconTapAction.label = "Icon tap behavior";
     this._refs.iconTapAction.defaultAction = "none";
     this.shadowRoot.getElementById("vehicle_entity_search").addEventListener("input", () => this._applyVehicleEntityOptions());
-    this._refs.gearEntity.label = "Gear / Shift State (Optional)";
-    this._refs.gearEntity.addEventListener("selected", (event) => this._updateConfigValue("gear_entity", firstNonEmptyString(event.detail.value)));
     this._refs.showHeadlights.addEventListener("change", (event) => this._updateConfigValue("show_headlights", event.target.checked));
     this._refs.markerType.options = [{ value: "arrow", label: "Directional arrow" }, { value: "image", label: "Custom image" }];
     this._refs.markerImageMode.options = [{ value: "auto", label: "Automatic (sun)" }, { value: "day", label: "Day" }, { value: "night", label: "Night" }];
@@ -27550,7 +27577,6 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._refs.markerSize.selector = { number: { min: 12, max: 96, step: 1, mode: "box" } };
     this._refs.subtitleEntity.label = "Subtitle Entity";
     this._refs.subtitleEntity.selector = { entity: {} };
-    this._refs.speedEntity.label = "Speed Entity";
     this._refs.subtitleMode.options = [
       { value: "none", label: "None" },
       { value: "custom_text", label: "Custom Text" },
@@ -27588,10 +27614,6 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._refs.subtitleEntity.addEventListener(
       "value-changed",
       (event) => this._updateConfigValue("subtitle_entity", firstNonEmptyString(event.detail.value))
-    );
-    this._refs.speedEntity.addEventListener(
-      "selected",
-      (event) => this._updateConfigValue("speed_entity", firstNonEmptyString(event.detail.value))
     );
     this._refs.speedometerStyle.addEventListener(
       "selected",
@@ -27675,7 +27697,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       { value: "bottomright", label: "Bottom Right" },
       { value: "hidden", label: "Hidden" }
     ];
-    this._refs.mapProvider.options = [{ value: "home_assistant", label: "Home Assistant (no API key)" }, { value: "carto", label: "CARTO" }, { value: "custom", label: "Custom URL" }];
+    this._refs.mapProvider.options = [{ value: "home_assistant", label: "Home Assistant (no API key)" }, { value: "carto", label: "CARTO" }, { value: "satellite", label: "Satellite (MapTiler)" }, { value: "custom", label: "Custom URL" }];
     this._refs.mapTheme.options = [{ value: "auto", label: "Automatic" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }];
     this._refs.mapProvider.addEventListener("selected", (event) => this._updateConfigValue("map_provider", event.detail.value));
     this._refs.mapTheme.addEventListener("selected", (event) => this._updateConfigValue("map_theme", event.detail.value));
@@ -27837,27 +27859,61 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
   _applyVehicleEntityOptions() {
     if (!this._rendered || !this._hass) return;
     const selectedDevice = this._findSelectedDeviceMatch()?.deviceId || this._config.device_id;
-    const registry = new Map(this._entityRegistry.map((e56) => [e56.entity_id, e56]));
+    const registry = new Map(this._entityRegistry.map((entry) => [entry.entity_id, entry]));
     const numeric = (state) => state && !["", "unknown", "unavailable"].includes(state.state) && Number.isFinite(Number(state.state));
-    const label = (id3) => {
+    const fields = [["entity", "Location Entity"], ["heading_entity", "Heading Entity"], ["speed_entity", "Speed Entity"], ["gear_entity", "Gear / Shift State"], ["latitude_entity", "Latitude Entity"], ["longitude_entity", "Longitude Entity"]];
+    const info = (id3) => {
       const entry = registry.get(id3);
-      const device = this._deviceRegistry.find((d2) => d2.id === entry?.device_id);
+      const device = this._deviceRegistry.find((item) => item.id === entry?.device_id);
       const platform = entry?.platform || "Custom";
       const integration = platform === "tesla_fleet" ? "Tesla Fleet" : platform === "mqtt" ? "MQTT" : platform;
-      return `${entry?.device_id === selectedDevice ? "\u2605 " : ""}${this._hass.states[id3]?.attributes?.friendly_name || entry?.name || id3} \xB7 ${integration} \xB7 ${device?.name_by_user || device?.name || "Other Entities"} \xB7 ${id3}`;
+      return { name: this._hass.states[id3]?.attributes?.friendly_name || entry?.name || id3, context: `${integration} | ${device?.name_by_user || device?.name || "Other Entities"} \xB7 ${id3}`, related: entry?.device_id === selectedDevice };
     };
-    for (const [control, field] of [[this._refs.speedEntity, "speed_entity"], [this._refs.gearEntity, "gear_entity"]]) {
-      const ids = Object.keys(this._hass.states).filter((id3) => {
+    const query = (this.shadowRoot.getElementById("vehicle_entity_search")?.value || "").trim().toLowerCase();
+    for (const [field, title] of fields) {
+      const picker = this.shadowRoot.getElementById(field);
+      const current = this._config[field];
+      const summary = picker.querySelector("summary");
+      summary.replaceChildren(document.createTextNode(`${title}: ${current ? info(current).name : field === "heading_entity" ? "Automatic / Location Heading" : field === "gear_entity" ? "Automatic / Speed Fallback" : "None"}`));
+      if (current) {
+        const context = document.createElement("span");
+        context.className = "entity-context";
+        context.textContent = info(current).context;
+        summary.append(context);
+      }
+      const list = picker.querySelector(".entity-options");
+      picker.ontoggle = () => {
+        if (picker.open) this._applyVehicleEntityOptions();
+      };
+      if (!picker.open) continue;
+      let ids = Object.keys(this._hass.states).filter((id3) => {
         const state = this._hass.states[id3];
-        if (!id3.startsWith("sensor.") && !id3.startsWith("number.") && !id3.startsWith("input_number.")) return false;
-        if (field === "speed_entity") return numeric(state) || ["unknown", "unavailable"].includes(state.state) && (!!state.attributes.unit_of_measurement || state.attributes.device_class === "speed");
-        return /shift|gear/.test(id3 + " " + (state.attributes.friendly_name || "")) || /^(P|D|R|N|park|drive|reverse|neutral)$/i.test(state.state);
+        if (field === "entity") return hasDirectCoordinates(state);
+        if (!/^(sensor|number|input_number)\./.test(id3)) return false;
+        if (field === "gear_entity") return /shift|gear/i.test(id3 + " " + (state.attributes.friendly_name || "")) || /^(P|D|R|N|park|parked|drive|reverse|neutral)$/i.test(state.state);
+        return numeric(state) || ["unknown", "unavailable"].includes(state.state) && (!!state.attributes.unit_of_measurement || /speed|heading|latitude|longitude/.test(id3));
       });
-      if (this._config[field] && !ids.includes(this._config[field])) ids.push(this._config[field]);
-      const query = (this.shadowRoot.getElementById("vehicle_entity_search")?.value || "").trim().toLowerCase();
-      const visibleIds = ids.filter((id3) => !query || label(id3).toLowerCase().includes(query) || id3 === this._config[field]);
-      visibleIds.sort((a2, b2) => Number(registry.get(b2)?.device_id === selectedDevice) - Number(registry.get(a2)?.device_id === selectedDevice) || label(a2).localeCompare(label(b2)));
-      control.options = [{ value: "", label: field === "speed_entity" ? "No Speed Entity" : "Automatic / Speed Fallback" }, ...visibleIds.map((id3) => ({ value: id3, label: label(id3) }))];
+      if (current && !ids.includes(current)) ids.push(current);
+      ids = ids.filter((id3) => !query || `${info(id3).name} ${info(id3).context}`.toLowerCase().includes(query) || id3 === current);
+      ids.sort((a2, b2) => Number(info(b2).related) - Number(info(a2).related) || info(a2).name.localeCompare(info(b2).name));
+      list.replaceChildren();
+      for (const id3 of ["", ...ids]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute("aria-pressed", String(id3 === (current || "")));
+        button.textContent = id3 ? info(id3).name : "None / Automatic";
+        if (id3) {
+          const context = document.createElement("span");
+          context.className = "entity-context";
+          context.textContent = `${info(id3).related ? "Selected Vehicle \xB7 " : ""}${info(id3).context}`;
+          button.append(context);
+        }
+        button.addEventListener("click", () => {
+          picker.open = false;
+          this._updateConfigValue(field, id3 || void 0);
+        });
+        list.append(button);
+      }
     }
   }
   _findSelectedDeviceMatch() {
@@ -27982,10 +28038,12 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._setControlValue(this._refs.markerImage, this._config.marker_image || "");
     this._setControlValue(this._refs.markerImageNight, this._config.marker_image_night || "");
     this._renderImageLibrary();
+    this._applyVehicleEntityOptions();
     this._setControlValue(this._refs.markerImageSize, this._config.marker_image_size ?? 80, true);
     this._refs.imageControls.hidden = this._config.marker_type !== "image";
     this._setControlValue(this._refs.attributionOpacity, this._config.attribution_opacity ?? 100, true);
     this._setControlValue(this._refs.cartoApiKey, this._config.carto_api_key || "");
+    this._setControlValue(this._refs.maptilerApiKey, this._config.maptiler_api_key || "");
     this._setControlValue(this._refs.tileUrl, this._config.tile_url || "");
     this._setControlValue(this._refs.stylePreset, normalizeSelectValue(this._config.style_preset, STYLE_PRESETS, "mushroom"));
     if (!this._isControlFocused(this._refs.showSpeedometer)) {
@@ -28041,7 +28099,9 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     const tileStyle = this._getTileStyleSelection();
     const provider = this._config.map_provider;
     const showTileUrl = provider === "custom";
-    const showMapLabels = provider !== "custom";
+    const showMapLabels = provider !== "custom" && provider !== "satellite";
+    this._setEditorVisibility(this._refs.maptilerApiKey, provider === "satellite");
+    this._setEditorVisibility(this._refs.maptilerKeyHelper, provider === "satellite");
     this._setEditorVisibility(this._refs.mapTheme, provider === "home_assistant");
     this._setEditorVisibility(this._refs.tileStyle, provider === "carto");
     const showCartoKey = provider === "carto" || showTileUrl && isCartoTileUrl(this._config.tile_url || "");
@@ -28050,6 +28110,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._setEditorVisibility(this._refs.tileUrl, showTileUrl);
     this._setEditorVisibility(this._refs.tileUrlHelper, showTileUrl);
     this._setEditorVisibility(this._refs.mapLabelsCard, showMapLabels);
+    this._setEditorVisibility(this._refs.attributionOpacity, provider !== "satellite");
+    this._setEditorVisibility(this.shadowRoot.getElementById("attribution_helper"), provider !== "satellite");
   }
   _getTileStyleSelection() {
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
@@ -28092,6 +28154,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._refs.iconTapAction.context = entityId ? { entity_id: entityId } : void 0;
   }
   _handleDeviceSelection(deviceId) {
+    if (deviceId && deviceId === this._config.device_id) return;
     const config = { ...this._config };
     delete config.entities;
     if (deviceId !== this._config.device_id) delete config.gear_entity;
@@ -28174,8 +28237,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       this._updateConfigValue("color", normalizedColor);
       return;
     }
-    if (field === "carto_api_key") {
-      this._updateConfigValue("carto_api_key", firstNonEmptyString(rawValue));
+    if (field === "carto_api_key" || field === "maptiler_api_key") {
+      this._updateConfigValue(field, firstNonEmptyString(rawValue));
       return;
     }
     if (field === "tile_url") {

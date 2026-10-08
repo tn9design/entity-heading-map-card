@@ -109,3 +109,22 @@ assert.equal(speedNodes['speedometer-value'].textContent,'5');
 speedCard._hass.states['sensor.gear'].state='unavailable';speedCard._hass.states['sensor.speed'].state='0';speedCard._updateSpeedometer([testPoint]);
 assert.equal(speedNodes['speedometer-value'].textContent,'0');
 console.log('Passed: explicit Park displays P without units, Reverse retains speed, unknown gear retains zero.');
+
+// Reselecting the same vehicle must not replace manually chosen source entities.
+editor._config={device_id:'car',speed_entity:'sensor.manual_speed',gear_entity:'sensor.manual_gear'};
+editor._commitConfig=()=>{throw Error('Same-device selection changed config');};
+editor._handleDeviceSelection('car');
+assert.equal(editor._config.speed_entity,'sensor.manual_speed');
+assert.equal(editor._config.gear_entity,'sensor.manual_gear');
+assert.equal(normalize({map_provider:'satellite'}).map_provider,'satellite');
+card._config=normalize({map_provider:'satellite',maptiler_api_key:'a&b',carto_api_key:'private'});
+card._tileLayer=null;card._syncTileLayer();
+assert.equal(url,'https://api.maptiler.com/tiles/satellite-v4/{z}/{x}/{y}?key=a%26b');
+assert.ok(!url.includes('private'));
+assert.match(options.attribution,/MapTiler/);
+assert.match(options.attribution,/logo.svg/);
+assert.equal(options.maxNativeZoom,18);
+let removed=false;card._tileLayer={remove:()=>{removed=true;}};
+card._config.maptiler_api_key='';card._syncTileLayer();
+assert.equal(removed,true);assert.equal(card._tileLayer,null);
+console.log('Passed: manual source preservation, satellite provider isolation, encoded key, attribution and missing-key handling.');
