@@ -25411,16 +25411,11 @@ var EntityHeadingMapCard = class extends HTMLElement {
           inset: 0;
           z-index: 1;
           overflow: hidden;
-          background:
-            linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.92) 18% 20.4%, transparent 20.4% 100%),
-            linear-gradient(0deg, transparent 0 73%, rgba(255, 255, 255, 0.92) 73% 75.8%, transparent 75.8% 100%),
-            linear-gradient(90deg, transparent 0 57%, rgba(255, 255, 255, 0.88) 57% 59.2%, transparent 59.2% 100%),
-            linear-gradient(33deg, transparent 0 78%, rgba(255, 255, 255, 0.86) 78% 80.2%, transparent 80.2% 100%),
-            radial-gradient(circle at 22% 28%, rgba(208, 230, 202, 0.38), transparent 18%),
-            radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.35), transparent 18%),
-            linear-gradient(180deg, #faf8f3, #f3efe8);
+          background: #eef0e9;
+
         }
 
+        .preview-map { position: absolute; inset: 0; width: 100%; height: 100%; }
         .preview-overlay[hidden] {
           display: none;
         }
@@ -25872,6 +25867,14 @@ var EntityHeadingMapCard = class extends HTMLElement {
           <div id="map-shell" class="map-shell">
             <div id="map"></div>
             <div id="preview-overlay" class="preview-overlay" hidden>
+              <svg class="preview-map" viewBox="0 0 320 280" preserveAspectRatio="none" aria-hidden="true">
+                <rect width="320" height="280" fill="#f1f0e9"/>
+                <rect x="212" y="28" width="92" height="82" rx="8" fill="#dae8d3"/>
+                <path d="M0 140H320 M100 0V280 M0 245H320" stroke="#d8d6ce" stroke-width="22"/>
+                <path d="M0 140H320 M100 0V280 M0 245H320" stroke="#fff" stroke-width="17"/>
+                <g fill="#e2dfd6" stroke="#d4d0c4"><rect x="16" y="28" width="62" height="38"/><rect x="18" y="82" width="58" height="34"/><rect x="122" y="34" width="62" height="66"/><rect x="18" y="170" width="60" height="48"/><rect x="122" y="172" width="65" height="48"/><rect x="212" y="174" width="88" height="45"/></g>
+                <g fill="#7e8778" font-family="sans-serif" font-size="9"><text x="216" y="72">Park</text><text x="196" y="144">Maple Street</text><text x="16" y="248">Oak Street</text></g>
+              </svg>
               <div id="preview-controls" class="preview-controls" aria-hidden="true">
                 <div class="preview-control">+</div>
                 <div class="preview-control">\u2212</div>
@@ -26057,8 +26060,8 @@ var EntityHeadingMapCard = class extends HTMLElement {
     const iconEl = this.shadowRoot.getElementById("icon");
     const zoomControlPosition = this._getZoomControlPosition();
     const showHeader = this._config?.show_header !== false;
-    const previewTitle = firstNonEmptyString(this._config?.title, this._config?.name, "Onyx");
-    const previewSubtitle = showHeader ? "Parked" : "";
+    const previewTitle = firstNonEmptyString(this._config?.title, this._config?.name, "Demo Vehicle");
+    const previewSubtitle = showHeader ? "Heading 90\xB0 \xB7 Demo" : "";
     const previewIcon = firstNonEmptyString(this._config?.icon, "mdi:car-electric");
     cardEl.dataset.previewMode = "true";
     mapShell.classList.add("preview-mode");
@@ -26083,7 +26086,15 @@ var EntityHeadingMapCard = class extends HTMLElement {
     previewMarker.classList.toggle("has-tooltip", this._config?.marker_tooltip_mode === "name");
     previewMarker.classList.toggle("tooltip-pinned", this._config?.marker_tooltip_mode === "name");
     previewMarker.style.setProperty("--marker-color", normalizeHex(this._config.color));
-    previewMarker.style.setProperty("--heading", "72deg");
+    previewMarker.style.setProperty("--heading", "90deg");
+    const speedometer = this.shadowRoot.getElementById("speedometer");
+    speedometer.hidden = this._config.show_speedometer !== true;
+    speedometer.classList.toggle("classic", false);
+    speedometer.classList.toggle("gauge", true);
+    speedometer.classList.toggle("parked", false);
+    this.shadowRoot.getElementById("speedometer-value").textContent = "24";
+    this.shadowRoot.getElementById("speedometer-unit").textContent = "MPH";
+    this._updateGaugeSegments(speedometer, { speed: 24, unit: "mph", value: "24" });
     previewMarker.style.setProperty(
       "--marker-size",
       `${Math.max(this._config.marker_size ?? DEFAULT_MARKER_SIZE, 32)}px`
@@ -27080,13 +27091,13 @@ var EntityHeadingMapCard = class extends HTMLElement {
       zoom: DEFAULT_ZOOM,
       show_zoom_controls: true,
       show_recenter_button: true,
-      show_speedometer: false,
+      show_speedometer: true,
       auto_zoom_by_speed: false,
       zoom_control_position: "bottomleft",
       marker_size: DEFAULT_MARKER_SIZE,
       color: DEFAULT_MARKER_COLOR,
       style_preset: "mushroom",
-      speedometer_style: "classic",
+      speedometer_style: "gauge",
       marker_tooltip_mode: "off",
       tile_style: "default",
       show_map_labels: true,
@@ -27154,8 +27165,15 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
           --expansion-panel-content-padding: 0;
         }
 
+        #image_controls { display: flex; flex-direction: column; gap: 12px; }
+        .replace-image { align-self: flex-end; margin-top: -8px; padding: 6px 10px; border: 0; border-radius: 6px; background: var(--secondary-background-color); color: var(--primary-color); cursor: pointer; font: inherit; font-size: 13px; }
+        .image-settings { display: flex; flex-direction: column; gap: 12px; }
+        .image-help { border-top: 1px solid var(--divider-color); padding-top: 12px; }
+        .image-help summary { cursor: pointer; padding: 4px 0; }
+        .help-content { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; }
+        #upload_status:empty { display: none; }
         .image-library summary, .image-options button { display: flex; align-items: center; gap: 12px; padding: 10px; cursor: pointer; }
-        .image-library { border: 1px solid var(--divider-color); border-radius: 8px; margin-bottom: 12px; }
+        .image-library { border: 1px solid var(--divider-color); border-radius: 8px; margin-bottom: 0; }
         .image-library img { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; background: repeating-conic-gradient(#ddd 0% 25%, #fff 0% 50%) 50% / 12px 12px; border-radius: 4px; }
         .image-library span { overflow-wrap: anywhere; text-align: left; }
         .image-options { max-height: 320px; overflow-y: auto; }
@@ -27319,21 +27337,21 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div id="image_controls">
               <details id="day_library" class="image-library"><summary>Day Image From HA Library</summary><div class="image-options"></div></details>
               <details id="night_library" class="image-library"><summary>Night Image From HA Library</summary><div class="image-options"></div></details>
-              <label>Choose Day Image <input type="file" id="day_upload" accept="image/png,image/webp" /></label>
-              <label>Choose Night Image <input type="file" id="night_upload" accept="image/png,image/webp" /></label>
+              <input type="file" id="day_upload" accept="image/png,image/webp" hidden />
+              <input type="file" id="night_upload" accept="image/png,image/webp" hidden />
               <div id="upload_status" class="helper" role="status"></div>
-              <details><summary>\u24D8 Create Your Own Vehicle Marker</summary>
+              <div class="image-settings"><ha-select id="marker_image_mode" label="Day / Night Mode"></ha-select>
+              <ha-selector id="marker_image_size"></ha-selector>
+              <div class="helper">Fixed screen size. Automatic mode follows sun.sun.</div></div>
+              <div class="toggle-card"><div class="toggle-copy"><div class="toggle-label">Show Headlights At Night</div><div class="toggle-description">Headlights and rear glow when out of Park; uses speed if gear is unavailable.</div></div><ha-switch id="show_headlights"></ha-switch></div>
+              <details class="image-help"><summary>Help &amp; Advanced</summary><div class="help-content">              <details><summary>\u24D8 Create Your Own Vehicle Marker</summary>
                 <p>Use a transparent PNG or WebP, viewed directly overhead with the front pointing up. A 512 \xD7 512 canvas works well; crop tightly around the vehicle. Day and night images must have identical dimensions, position, scale, and margins. The size slider controls the displayed size.</p>
                 <label>Day Prompt<textarea readonly id="day_prompt">Create a realistic directly overhead view of a [year, make, model] in [color]. Front pointing straight up, centered on a 512 \xD7 512 transparent canvas. Entire vehicle visible with a small even transparent margin. No ground, scenery, text, perspective tilt, cast shadow, or light beams.</textarea></label><button type="button" data-copy="day_prompt">Copy Day Prompt</button>
                 <label>Night Prompt<textarea readonly id="night_prompt">Using the day image as a reference, create a nighttime version. Preserve the exact canvas dimensions, vehicle position, scale, orientation, and outline. Darken the body naturally while keeping it recognizable. Transparent background. No headlight beams or surrounding glows; the card supplies those effects.</textarea></label><button type="button" data-copy="night_prompt">Copy Night Prompt</button>
               </details>
               <details><summary>Advanced Image URLs</summary><ha-selector id="marker_image" label="Day Image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-selector>
               <ha-selector id="marker_image_night" label="Night Image URL"></ha-selector></details>
-              <ha-select id="marker_image_mode" label="Image mode"></ha-select>
-              <div class="helper">Optional gear sensor: P/Park disables headlights; D/Drive, R/Reverse or N/Neutral enables them after sunset. Missing or unavailable gear uses speed above zero.</div>
-              <div class="toggle-card"><div class="toggle-copy"><div class="toggle-label">Show headlights at night</div><div class="toggle-description">Headlight beams and faint rear glow when not parked after sunset; uses speed if gear is unavailable.</div></div><ha-switch id="show_headlights"></ha-switch></div>
-              <ha-selector id="marker_image_size"></ha-selector>
-              <div class="helper">Fixed screen size, including transparent margins. Automatic mode follows sun.sun; images should point nose-up.</div>
+</div></details>
             </div>
             <ha-select id="marker_tooltip_mode" label="Marker Tooltips"></ha-select>
             <div class="toggle-card">
@@ -27719,6 +27737,15 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
         img.referrerPolicy = "no-referrer";
         return img;
       };
+      let replace = picker.nextElementSibling;
+      if (!replace?.classList.contains("replace-image")) {
+        replace = document.createElement("button");
+        replace.type = "button";
+        replace.className = "replace-image";
+        replace.textContent = `Replace ${title}`;
+        replace.addEventListener("click", () => this.shadowRoot.getElementById(id3 === "day_library" ? "day_upload" : "night_upload").click());
+        picker.after(replace);
+      }
       const summary = picker.querySelector("summary");
       summary.replaceChildren();
       if (current) summary.append(makeImage(current));
