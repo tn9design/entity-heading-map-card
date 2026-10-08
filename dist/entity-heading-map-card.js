@@ -25993,7 +25993,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
     cardEl.style.marginInline = "auto";
     this.shadowRoot.getElementById("icon-button").style.background = this._config.header_icon_background || "";
     this.shadowRoot.getElementById("icon").style.color = this._config.header_icon_color || "";
-    mapEl.style.setProperty("--attribution-opacity", String(this._config.map_provider === "satellite" ? 1 : this._config.attribution_opacity / 100));
+    mapEl.style.setProperty("--attribution-opacity", String(this._config.attribution_opacity / 100));
     this._syncThemeState();
     this._applyActionState();
     if (this._isPreviewMode()) {
@@ -28111,8 +28111,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._setEditorVisibility(this._refs.tileUrl, showTileUrl);
     this._setEditorVisibility(this._refs.tileUrlHelper, showTileUrl);
     this._setEditorVisibility(this._refs.mapLabelsCard, showMapLabels);
-    this._setEditorVisibility(this._refs.attributionOpacity, provider !== "satellite");
-    this._setEditorVisibility(this.shadowRoot.getElementById("attribution_helper"), provider !== "satellite");
+    this._setEditorVisibility(this._refs.attributionOpacity, true);
+    this._setEditorVisibility(this.shadowRoot.getElementById("attribution_helper"), true);
   }
   _getTileStyleSelection() {
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
