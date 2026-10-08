@@ -26191,7 +26191,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
   }
   _getResolvedTileUrl() {
     if (this._config.map_provider === "satellite") {
-      return `https://api.maptiler.com/maps/satellite/256/{z}/{x}/{y}.jpg?key=${encodeURIComponent(firstNonEmptyString(this._config.maptiler_api_key) || "")}`;
+      return `https://api.maptiler.com/maps/${this._config.show_map_labels === false ? "satellite" : "hybrid"}/256/{z}/{x}/{y}.jpg?key=${encodeURIComponent(firstNonEmptyString(this._config.maptiler_api_key) || "")}`;
     }
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
     const tileStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
@@ -27420,7 +27420,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div id="map_labels_card" class="toggle-card">
               <div class="toggle-copy">
                 <div class="toggle-label">Show map labels</div>
-                <div class="toggle-description">Built-in map styles only. Turn street and place labels on or off.</div>
+                <div class="toggle-description">Turn street and place labels on or off. Satellite mode also shows roads when labels are enabled.</div>
               </div>
               <ha-switch id="show_map_labels"></ha-switch>
             </div>
@@ -28106,7 +28106,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     const tileStyle = this._getTileStyleSelection();
     const provider = this._config.map_provider;
     const showTileUrl = provider === "custom";
-    const showMapLabels = provider !== "custom" && provider !== "satellite";
+    const showMapLabels = provider !== "custom";
     this._setEditorVisibility(this._refs.maptilerApiKey, provider === "satellite");
     this._setEditorVisibility(this._refs.maptilerKeyHelper, provider === "satellite");
     this._setEditorVisibility(this._refs.mapTheme, provider === "home_assistant");

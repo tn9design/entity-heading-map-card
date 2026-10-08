@@ -314,7 +314,7 @@ The deterministic browser fixture uses synthetic vehicle positions and a loopbac
 
 ### Satellite Imagery
 
-Choose **Satellite (MapTiler)** under **Map Style & Layout**, then enter your own [MapTiler API key](https://cloud.maptiler.com/). This uses the MapTiler satellite map with 256-pixel XYZ tiles, preserves vehicle markers and controls, and displays the provider credits and logo. The key is masked in the editor but stored in the dashboard configuration and accessible to its users. Account limits and origin restrictions apply. Satellite imagery does not use the HA map theme or street-label toggle. Native imagery requests stop at zoom 18 and are enlarged at higher card zoom levels. Satellite imagery has been verified in Home Assistant with an origin-restricted personal key.
+Choose **Satellite (MapTiler)** under **Map Style & Layout**, then enter your own [MapTiler API key](https://cloud.maptiler.com/). This uses the MapTiler satellite map with 256-pixel XYZ tiles, preserves vehicle markers and controls, and displays the provider credits and logo. The key is masked in the editor but stored in the dashboard configuration and accessible to its users. Account limits and origin restrictions apply. Satellite imagery does not use the HA map theme. **Show map labels** switches between plain satellite imagery (off) and imagery with streets, roads and place names (on). Native imagery requests stop at zoom 18 and are enlarged at higher card zoom levels. Satellite imagery has been verified in Home Assistant with an origin-restricted personal key.
 
 #### Create Your MapTiler Key
 
