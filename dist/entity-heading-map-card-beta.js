@@ -1,4 +1,4 @@
-/* Advanced Map Heading Card 3000GT 0.3.0-beta.1 isolated beta */
+/* Advanced Map Heading Card 3000GT 0.3.0-beta.2 isolated beta */
 /* MapLibre GL JS 6.4.1
 ==================
 Copyright (c) 2023, MapLibre contributors
