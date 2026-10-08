@@ -4080,7 +4080,9 @@ if (!customElements.get(`${CARD_TAG}-editor`)) {
 
 if (CARD_TAG === "entity-heading-map-card") {
 window.customCards = window.customCards || [];
-window.customCards = window.customCards.filter((card) => card.type !== CARD_TAG);
+for (let i = window.customCards.length - 1; i >= 0; i--) {
+  if (window.customCards[i].type === CARD_TAG) window.customCards.splice(i, 1);
+}
 window.customCards.push({
   type: CARD_TAG,
   name: "Advanced Map Heading Card 3000GT",
