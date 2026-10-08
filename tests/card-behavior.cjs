@@ -63,3 +63,28 @@ console.log('Passed: legacy explicit Voyager URL keeps its background.');
 assert.equal(normalize({tile_style:'default',tile_url:'https://example.org/{z}/{x}/{y}.png'}).map_provider,'carto');
 assert.equal(normalize({tile_url:'https://example.org/{z}/{x}/{y}.png'}).map_provider,'custom');
 console.log('Passed: inactive legacy custom URLs do not change provider.');
+
+delete card._getConfiguredSpeedData;
+// Header speed must use the same selected speed sensor as map overlays.
+card._config={speed_entity:'sensor.vehicle_speed',subtitle_entity:'device_tracker.vehicle',subtitle_mode:'speed_or_parked'};
+card._hass={states:{'sensor.vehicle_speed':{state:'24',attributes:{unit_of_measurement:'mph'}},'device_tracker.vehicle':{state:'home',attributes:{}}}};
+const speedPoint={entityState:card._hass.states['device_tracker.vehicle']};
+assert.equal(card._getSubtitle([speedPoint]),'24 mph');
+card._hass.states['sensor.vehicle_speed'].state='0';
+assert.equal(card._getSubtitle([speedPoint]),'Parked');
+console.log('Passed: Speed Or Parked shares the configured speed sensor and handles zero speed.');
+
+assert.equal(normalize({max_width:480}).max_width,480);
+assert.equal(normalize({max_width:-5}).max_width,0);
+assert.equal(normalize({header_icon_color:'#ffffff',header_icon_background:'#2255aa'}).header_icon_background,'#2255aa');
+assert.equal(normalize({header_icon_color:'url(example)'}).header_icon_color,'');
+const visibilityEditor=Object.create(context.testApi.EntityHeadingMapCardEditor.prototype);
+visibilityEditor._rendered=true; visibilityEditor._refs={};
+for(const key of ['subtitle','subtitleEntity','subtitleLabel','subtitleSuffix','subtitleFallback']) visibilityEditor._refs[key]={style:{}};
+visibilityEditor._config={subtitle_mode:'speed_or_parked'}; visibilityEditor._syncSubtitleEditorState();
+assert.equal(visibilityEditor._refs.subtitleEntity.hidden,true);
+assert.equal(visibilityEditor._refs.subtitleSuffix.hidden,true);
+assert.equal(visibilityEditor._refs.subtitleFallback.hidden,false);
+visibilityEditor._config.subtitle_mode='custom_entity'; visibilityEditor._syncSubtitleEditorState();
+assert.equal(visibilityEditor._refs.subtitleEntity.hidden,false);
+console.log('Passed: width bounds, safe independent header colors and subtitle control visibility.');

@@ -25134,6 +25134,9 @@ var normalizeCardConfig = (config = {}) => {
     zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
     fit_bounds: config.fit_bounds !== false,
     height: normalizeHeight(config.height),
+    max_width: Math.max(0, asNumber(config.max_width) ?? 0),
+    header_icon_color: /^#[0-9a-f]{6}$/i.test(config.header_icon_color || "") ? config.header_icon_color : "",
+    header_icon_background: /^#[0-9a-f]{6}$/i.test(config.header_icon_background || "") ? config.header_icon_background : "",
     color: normalizeHex(config.color),
     marker_size: asNumber(config.marker_size) ?? DEFAULT_MARKER_SIZE,
     show_headlights: config.show_headlights !== false,
@@ -25975,6 +25978,10 @@ var EntityHeadingMapCard = class extends HTMLElement {
     cardEl.classList.toggle("preset-default", stylePreset === "default");
     cardEl.classList.toggle("preset-mushroom", stylePreset === "mushroom");
     mapEl.style.height = normalizeHeight(this._config.height);
+    cardEl.style.maxWidth = this._config.max_width ? `${this._config.max_width}px` : "";
+    cardEl.style.marginInline = "auto";
+    this.shadowRoot.getElementById("icon-button").style.background = this._config.header_icon_background || "";
+    this.shadowRoot.getElementById("icon").style.color = this._config.header_icon_color || "";
     mapEl.style.setProperty("--attribution-opacity", String(this._config.attribution_opacity / 100));
     this._syncThemeState();
     this._applyActionState();
@@ -26555,6 +26562,8 @@ var EntityHeadingMapCard = class extends HTMLElement {
     });
   }
   _getSpeedData(point) {
+    const configuredSpeed = this._getConfiguredSpeedData();
+    if (configuredSpeed) return configuredSpeed;
     const customState = this._getEntityState(this._config?.subtitle_entity);
     const customSpeed = this._readSpeedState(customState, {
       allowNumericStateFallback: true,
@@ -27131,6 +27140,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
           --expansion-panel-content-padding: 0;
         }
 
+        textarea { width: 100%; min-height: 110px; box-sizing: border-box; color: var(--primary-text-color); background: var(--card-background-color); }
+        input[type="search"] { padding: 12px; color: var(--primary-text-color); background: var(--card-background-color); border: 1px solid var(--divider-color); border-radius: 8px; }
         .panel-content {
           display: grid;
           gap: 14px;
@@ -27232,7 +27243,10 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
           <div class="panel-content">
             <ha-select id="device" label="Device"></ha-select>
             <div id="device_helper" class="helper"></div>
-            <ha-selector id="speed_entity"></ha-selector>
+            <input id="vehicle_entity_search" type="search" aria-label="Search Vehicle Entities" placeholder="Search Vehicle Entities" />
+            <ha-select id="speed_entity" label="Speed Entity"></ha-select>
+            <ha-select id="gear_entity" label="Gear / Shift State (Optional)"></ha-select>
+            <div class="helper">Selected vehicle entities appear first. Integration and entity ID distinguish similar names.</div>
             <div id="speed_entity_helper" class="helper">Used by speed subtitle, speedometer, and auto zoom.</div>
           </div>
         </ha-expansion-panel>
@@ -27249,6 +27263,10 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div class="row">
               <ha-icon-picker id="icon" label="Icon"></ha-icon-picker>
               <ha-selector id="title" label="Title"></ha-selector>
+            </div>
+            <div id="header_colors" class="row">
+              <label>Icon Color <input id="header_icon_color" type="color" /><button type="button" data-reset="header_icon_color">Automatic</button></label>
+              <label>Icon Background <input id="header_icon_background" type="color" /><button type="button" data-reset="header_icon_background">Automatic</button></label>
             </div>
             <ha-select id="subtitle_mode" label="Subtitle Mode"></ha-select>
             <ha-selector id="subtitle" label="Subtitle Text"></ha-selector>
@@ -27278,10 +27296,19 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             </div>
             <ha-select id="marker_type" label="Marker type"></ha-select>
             <div id="image_controls">
-              <ha-selector id="marker_image" label="Day image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-selector>
-              <ha-selector id="marker_image_night" label="Night image URL"></ha-selector>
+              <ha-select id="day_library" label="Day Image From HA Library"></ha-select>
+              <ha-select id="night_library" label="Night Image From HA Library"></ha-select>
+              <label>Choose Day Image <input type="file" id="day_upload" accept="image/png,image/webp" /></label>
+              <label>Choose Night Image <input type="file" id="night_upload" accept="image/png,image/webp" /></label>
+              <div id="upload_status" class="helper" role="status"></div>
+              <details><summary>\u24D8 Create Your Own Vehicle Marker</summary>
+                <p>Use a transparent PNG or WebP, viewed directly overhead with the front pointing up. A 512 \xD7 512 canvas works well; crop tightly around the vehicle. Day and night images must have identical dimensions, position, scale, and margins. The size slider controls the displayed size.</p>
+                <label>Day Prompt<textarea readonly id="day_prompt">Create a realistic directly overhead view of a [year, make, model] in [color]. Front pointing straight up, centered on a 512 \xD7 512 transparent canvas. Entire vehicle visible with a small even transparent margin. No ground, scenery, text, perspective tilt, cast shadow, or light beams.</textarea></label><button type="button" data-copy="day_prompt">Copy Day Prompt</button>
+                <label>Night Prompt<textarea readonly id="night_prompt">Using the day image as a reference, create a nighttime version. Preserve the exact canvas dimensions, vehicle position, scale, orientation, and outline. Darken the body naturally while keeping it recognizable. Transparent background. No headlight beams or surrounding glows; the card supplies those effects.</textarea></label><button type="button" data-copy="night_prompt">Copy Night Prompt</button>
+              </details>
+              <details><summary>Advanced Image URLs</summary><ha-selector id="marker_image" label="Day Image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-selector>
+              <ha-selector id="marker_image_night" label="Night Image URL"></ha-selector></details>
               <ha-select id="marker_image_mode" label="Image mode"></ha-select>
-              <ha-selector id="gear_entity"></ha-selector>
               <div class="helper">Optional gear sensor: P/Park disables headlights; D/Drive, R/Reverse or N/Neutral enables them after sunset. Missing or unavailable gear uses speed above zero.</div>
               <div class="toggle-card"><div class="toggle-copy"><div class="toggle-label">Show headlights at night</div><div class="toggle-description">Headlight beams and faint rear glow when not parked after sunset; uses speed if gear is unavailable.</div></div><ha-switch id="show_headlights"></ha-switch></div>
               <ha-selector id="marker_image_size"></ha-selector>
@@ -27349,7 +27376,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div id="tile_url_helper" class="helper">Shown only for Custom URL map style.</div>
             <ha-selector id="attribution_opacity"></ha-selector>
             <div class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
-            <ha-selector id="height"></ha-selector>
+            <div class="row"><ha-selector id="height"></ha-selector><ha-selector id="max_width" label="Maximum Width"></ha-selector></div><div class="helper">Height sets the map height. Maximum width centers the card within its dashboard space; 0 fills available space.</div>
           </div>
         </ha-expansion-panel>
 
@@ -27422,13 +27449,56 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
         }
       });
     }
+    for (const [id3, field] of [["day_library", "marker_image"], ["night_library", "marker_image_night"]]) {
+      this.shadowRoot.getElementById(id3).addEventListener("selected", (e56) => this._updateConfigValue(field, e56.detail.value || ""));
+    }
+    const widthControl = this.shadowRoot.getElementById("max_width");
+    widthControl.label = "Maximum Width (0 = Fill Available Space)";
+    widthControl.selector = { number: { min: 0, max: 2400, step: 1, mode: "box", unit_of_measurement: "px" } };
+    widthControl.addEventListener("value-changed", (e56) => this._updateConfigValue("max_width", asNumber(e56.detail.value) ?? 0));
+    for (const field of ["header_icon_color", "header_icon_background"]) {
+      this.shadowRoot.getElementById(field).addEventListener("input", (e56) => this._updateConfigValue(field, e56.target.value));
+    }
+    this.shadowRoot.querySelectorAll("[data-reset]").forEach((button) => button.addEventListener("click", () => this._updateConfigValue(button.dataset.reset, "")));
+    this.shadowRoot.querySelectorAll("[data-copy]").forEach((button) => button.addEventListener("click", async () => {
+      const text = this.shadowRoot.getElementById(button.dataset.copy);
+      try {
+        await navigator.clipboard.writeText(text.value);
+        button.textContent = "Copied";
+      } catch {
+        text.select();
+      }
+    }));
+    for (const [id3, field] of [["day_upload", "marker_image"], ["night_upload", "marker_image_night"]]) {
+      this.shadowRoot.getElementById(id3).addEventListener("change", async (e56) => {
+        const file = e56.target.files?.[0];
+        if (!file) return;
+        const status = this.shadowRoot.getElementById("upload_status");
+        status.textContent = "Uploading Image\u2026";
+        try {
+          const data = new FormData();
+          data.append("file", file);
+          const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body: data });
+          if (!response.ok) throw new Error("Upload failed");
+          const image = await response.json();
+          if (!image.id) throw new Error("Missing image ID");
+          this._updateConfigValue(field, `/api/image/serve/${image.id}/original`);
+          status.textContent = "Image Uploaded";
+          this._imageLibraryLoaded = false;
+          this._loadImageLibrary();
+        } catch {
+          status.textContent = "Image upload failed. Check your connection and image format, then try again.";
+        }
+        e56.target.value = "";
+      });
+    }
     this._refs.tapAction.label = "Tap behavior";
     this._refs.tapAction.defaultAction = "more-info";
     this._refs.iconTapAction.label = "Icon tap behavior";
     this._refs.iconTapAction.defaultAction = "none";
-    this._refs.gearEntity.label = "Gear entity (optional)";
-    this._refs.gearEntity.selector = { entity: {} };
-    this._refs.gearEntity.addEventListener("value-changed", (event) => this._updateConfigValue("gear_entity", firstNonEmptyString(event.detail.value)));
+    this.shadowRoot.getElementById("vehicle_entity_search").addEventListener("input", () => this._applyVehicleEntityOptions());
+    this._refs.gearEntity.label = "Gear / Shift State (Optional)";
+    this._refs.gearEntity.addEventListener("selected", (event) => this._updateConfigValue("gear_entity", firstNonEmptyString(event.detail.value)));
     this._refs.showHeadlights.addEventListener("change", (event) => this._updateConfigValue("show_headlights", event.target.checked));
     this._refs.markerType.options = [{ value: "arrow", label: "Directional arrow" }, { value: "image", label: "Custom image" }];
     this._refs.markerImageMode.options = [{ value: "auto", label: "Automatic (sun)" }, { value: "day", label: "Day" }, { value: "night", label: "Night" }];
@@ -27456,7 +27526,6 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._refs.subtitleEntity.label = "Subtitle Entity";
     this._refs.subtitleEntity.selector = { entity: {} };
     this._refs.speedEntity.label = "Speed Entity";
-    this._refs.speedEntity.selector = { entity: {} };
     this._refs.subtitleMode.options = [
       { value: "none", label: "None" },
       { value: "custom_text", label: "Custom Text" },
@@ -27496,7 +27565,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       (event) => this._updateConfigValue("subtitle_entity", firstNonEmptyString(event.detail.value))
     );
     this._refs.speedEntity.addEventListener(
-      "value-changed",
+      "selected",
       (event) => this._updateConfigValue("speed_entity", firstNonEmptyString(event.detail.value))
     );
     this._refs.speedometerStyle.addEventListener(
@@ -27606,16 +27675,34 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._applyConfigToForm();
     this._setHassOnControls();
   }
+  async _loadImageLibrary() {
+    if (!this._hass || !this._rendered || this._imageLibraryLoaded) return;
+    this._imageLibraryLoaded = true;
+    try {
+      const images = await this._hass.callWS({ type: "image/list" });
+      for (const [id3, field] of [["day_library", "marker_image"], ["night_library", "marker_image_night"]]) {
+        const control = this.shadowRoot.getElementById(id3);
+        const options = images.map((image) => ({ value: `/api/image/serve/${image.id}/original`, label: image.name }));
+        const current = this._config[field];
+        if (current && !options.some((option) => option.value === current)) options.unshift({ value: current, label: "Current Image" });
+        control.options = [{ value: "", label: "None" }, ...options];
+        this._setControlValue(control, current || "");
+      }
+    } catch {
+      this.shadowRoot.getElementById("upload_status").textContent = "HA image library unavailable. You can still choose a file to upload.";
+    }
+  }
   _setHassOnControls() {
     if (!this._hass || !this._rendered) {
       return;
     }
+    this._loadImageLibrary();
     this._refs.tapAction.hass = this._hass;
     this._refs.iconTapAction.hass = this._hass;
     this._refs.zoom.hass = this._hass;
     this._refs.markerSize.hass = this._hass;
     this._refs.subtitleEntity.hass = this._hass;
-    this._refs.speedEntity.hass = this._hass;
+    this._applyVehicleEntityOptions();
     this._refs.gearEntity.hass = this._hass;
     this._refs.markerImageSize.hass = this._hass;
     this._updateActionEditorContext();
@@ -27680,6 +27767,32 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       this._applyConfigToForm();
     }
   }
+  _applyVehicleEntityOptions() {
+    if (!this._rendered || !this._hass) return;
+    const selectedDevice = this._findSelectedDeviceMatch()?.deviceId || this._config.device_id;
+    const registry = new Map(this._entityRegistry.map((e56) => [e56.entity_id, e56]));
+    const numeric = (state) => state && !["", "unknown", "unavailable"].includes(state.state) && Number.isFinite(Number(state.state));
+    const label = (id3) => {
+      const entry = registry.get(id3);
+      const device = this._deviceRegistry.find((d2) => d2.id === entry?.device_id);
+      const platform = entry?.platform || "Custom";
+      const integration = platform === "tesla_fleet" ? "Tesla Fleet" : platform === "mqtt" ? "MQTT" : platform;
+      return `${entry?.device_id === selectedDevice ? "\u2605 " : ""}${this._hass.states[id3]?.attributes?.friendly_name || entry?.name || id3} \xB7 ${integration} \xB7 ${device?.name_by_user || device?.name || "Other Entities"} \xB7 ${id3}`;
+    };
+    for (const [control, field] of [[this._refs.speedEntity, "speed_entity"], [this._refs.gearEntity, "gear_entity"]]) {
+      const ids = Object.keys(this._hass.states).filter((id3) => {
+        const state = this._hass.states[id3];
+        if (!id3.startsWith("sensor.") && !id3.startsWith("number.") && !id3.startsWith("input_number.")) return false;
+        if (field === "speed_entity") return numeric(state) || ["unknown", "unavailable"].includes(state.state) && (!!state.attributes.unit_of_measurement || state.attributes.device_class === "speed");
+        return /shift|gear/.test(id3 + " " + (state.attributes.friendly_name || "")) || /^(P|D|R|N|park|drive|reverse|neutral)$/i.test(state.state);
+      });
+      if (this._config[field] && !ids.includes(this._config[field])) ids.push(this._config[field]);
+      const query = (this.shadowRoot.getElementById("vehicle_entity_search")?.value || "").trim().toLowerCase();
+      const visibleIds = ids.filter((id3) => !query || label(id3).toLowerCase().includes(query) || id3 === this._config[field]);
+      visibleIds.sort((a2, b2) => Number(registry.get(b2)?.device_id === selectedDevice) - Number(registry.get(a2)?.device_id === selectedDevice) || label(a2).localeCompare(label(b2)));
+      control.options = [{ value: "", label: field === "speed_entity" ? "No Speed Entity" : "Automatic / Speed Fallback" }, ...visibleIds.map((id3) => ({ value: id3, label: label(id3) }))];
+    }
+  }
   _findSelectedDeviceMatch() {
     if (!this._compatibleDevices.length) {
       return null;
@@ -27704,6 +27817,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       return;
     }
     const selectedMatch = this._findSelectedDeviceMatch();
+    this._applyVehicleEntityOptions();
     const selectedId = selectedMatch?.deviceId || this._config.device_id || "";
     const options = [{ value: "", label: this._registryError ? "Unable to load devices" : "Select a device" }];
     for (const device of this._compatibleDevices) {
@@ -27761,6 +27875,9 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._setControlValue(this._refs.subtitleSuffix, this._config.subtitle_suffix || "");
     this._setControlValue(this._refs.subtitleFallback, this._config.subtitle_fallback || "");
     this._setControlValue(this._refs.icon, this._config.icon || "");
+    this._setControlValue(this.shadowRoot.getElementById("max_width"), this._config.max_width || 0);
+    for (const field of ["header_icon_color", "header_icon_background"]) this._setControlValue(this.shadowRoot.getElementById(field), this._config[field] || "#808080");
+    this._setEditorVisibility(this.shadowRoot.getElementById("header_colors"), this._config.show_header !== false && !!this._config.icon);
     this._refs.tapAction.config = this._config.tap_action;
     this._refs.iconTapAction.config = this._config.icon_tap_action;
     this._setControlValue(
@@ -27797,6 +27914,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._setControlValue(this._refs.markerImageMode, this._config.marker_image_mode || "auto");
     this._setControlValue(this._refs.markerImage, this._config.marker_image || "");
     this._setControlValue(this._refs.markerImageNight, this._config.marker_image_night || "");
+    this._setControlValue(this.shadowRoot.getElementById("day_library"), this._config.marker_image || "", true);
+    this._setControlValue(this.shadowRoot.getElementById("night_library"), this._config.marker_image_night || "", true);
     this._setControlValue(this._refs.markerImageSize, this._config.marker_image_size ?? 80, true);
     this._refs.imageControls.hidden = this._config.marker_type !== "image";
     this._setControlValue(this._refs.attributionOpacity, this._config.attribution_opacity ?? 100, true);
@@ -27831,9 +27950,9 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     }
     const mode = normalizeSelectValue(this._config.subtitle_mode, SUBTITLE_MODES, "none");
     const usesText = mode === "custom_text";
-    const usesEntity = mode === "custom_entity" || mode === "speed" || mode === "speed_or_parked";
+    const usesEntity = mode === "custom_entity";
     const usesLabel = mode === "custom_entity";
-    const usesSuffix = mode === "custom_entity" || mode === "speed" || mode === "speed_or_parked";
+    const usesSuffix = mode === "custom_entity";
     const usesFallback = ["speed", "speed_or_parked", "heading", "last_updated", "custom_entity"].includes(mode);
     this._setEditorVisibility(this._refs.subtitle, usesText);
     this._setEditorVisibility(this._refs.subtitleEntity, usesEntity);
@@ -27845,10 +27964,8 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     if (!this._rendered) {
       return;
     }
-    const subtitleMode = normalizeSelectValue(this._config.subtitle_mode, SUBTITLE_MODES, "none");
-    const needsSpeedEntity = this._config.show_speedometer === true || this._config.auto_zoom_by_speed === true || subtitleMode === "speed" || subtitleMode === "speed_or_parked";
-    this._setEditorVisibility(this._refs.speedEntity, needsSpeedEntity);
-    this._setEditorVisibility(this._refs.speedEntityHelper, needsSpeedEntity);
+    this._setEditorVisibility(this._refs.speedEntity, true);
+    this._setEditorVisibility(this._refs.speedEntityHelper, true);
     this._setEditorVisibility(this._refs.speedometerStyle, this._config.show_speedometer === true);
   }
   _syncTileStyleEditorState() {
@@ -27911,7 +28028,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
   _handleDeviceSelection(deviceId) {
     const config = { ...this._config };
     delete config.entities;
-    delete config.gear_entity;
+    if (deviceId !== this._config.device_id) delete config.gear_entity;
     delete config.subtitle_text;
     if (!deviceId) {
       delete config.device_id;
@@ -27955,7 +28072,10 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     } else {
       delete config.speed_entity;
     }
+    const gearMatches = this._entityRegistry.filter((e56) => e56.device_id === selectedMatch.deviceId && !e56.disabled_by && /shift_state|gear/.test(e56.entity_id));
+    if (!config.gear_entity && gearMatches.length === 1) config.gear_entity = gearMatches[0].entity_id;
     this._commitConfig(config);
+    this._applyVehicleEntityOptions();
   }
   _handleFieldChange(event) {
     const field = event.target.id;
