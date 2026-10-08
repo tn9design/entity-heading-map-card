@@ -3092,7 +3092,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
         }
 
         .row > *,
-        ha-textfield,
+        ha-selector,
         ha-select,
         ha-icon-picker,
         ha-selector,
@@ -3195,22 +3195,22 @@ class EntityHeadingMapCardEditor extends HTMLElement {
             </div>
             <div class="row">
               <ha-icon-picker id="icon" label="Icon"></ha-icon-picker>
-              <ha-textfield id="title" label="Title"></ha-textfield>
+              <ha-selector id="title" label="Title"></ha-selector>
             </div>
             <ha-select id="subtitle_mode" label="Subtitle Mode"></ha-select>
-            <ha-textfield id="subtitle" label="Subtitle Text"></ha-textfield>
+            <ha-selector id="subtitle" label="Subtitle Text"></ha-selector>
             <ha-selector id="subtitle_entity"></ha-selector>
-            <ha-textfield id="subtitle_label" label="Subtitle Label"></ha-textfield>
-            <ha-textfield
+            <ha-selector id="subtitle_label" label="Subtitle Label"></ha-selector>
+            <ha-selector
               id="subtitle_suffix"
               label="Subtitle Suffix"
               placeholder="e.g. mph, knots, ft"
-            ></ha-textfield>
-            <ha-textfield
+            ></ha-selector>
+            <ha-selector
               id="subtitle_fallback"
               label="Subtitle Fallback"
               placeholder="e.g. Parked or Unavailable"
-            ></ha-textfield>
+            ></ha-selector>
           </div>
         </ha-expansion-panel>
 
@@ -3219,14 +3219,14 @@ class EntityHeadingMapCardEditor extends HTMLElement {
             <div class="row">
               <div class="color-row">
                 <input id="color_picker" class="color-picker" type="color" />
-                <ha-textfield id="color" label="Marker Color"></ha-textfield>
+                <ha-selector id="color" label="Marker Color"></ha-selector>
               </div>
               <ha-selector id="marker_size"></ha-selector>
             </div>
             <ha-select id="marker_type" label="Marker type"></ha-select>
             <div id="image_controls">
-              <ha-textfield id="marker_image" label="Day image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-textfield>
-              <ha-textfield id="marker_image_night" label="Night image URL"></ha-textfield>
+              <ha-selector id="marker_image" label="Day image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-selector>
+              <ha-selector id="marker_image_night" label="Night image URL"></ha-selector>
               <ha-select id="marker_image_mode" label="Image mode"></ha-select>
               <ha-selector id="gear_entity"></ha-selector>
               <div class="helper">Optional gear sensor: P/Park disables headlights; D/Drive, R/Reverse or N/Neutral enables them after sunset. Missing or unavailable gear uses speed above zero.</div>
@@ -3284,15 +3284,15 @@ class EntityHeadingMapCardEditor extends HTMLElement {
               </div>
               <ha-switch id="show_map_labels"></ha-switch>
             </div>
-            <ha-textfield id="carto_api_key" label="CARTO API key" type="password" autocomplete="off"></ha-textfield>
+            <ha-selector id="carto_api_key" label="CARTO API key" type="password" autocomplete="off"></ha-selector>
             <div id="carto_key_helper" class="helper">
               Built-in maps need a free CARTO key. <a href="https://www.carto.com/basemaps/apikey/" target="_blank" rel="noopener noreferrer">Get your key</a>, then paste it here. Stored in this dashboard configuration; accessible to its users. Required map attribution stays visible.
             </div>
-            <ha-textfield
+            <ha-selector
               id="tile_url"
               label="Custom Tile URL"
               placeholder="e.g. https://tiles.example.com/{z}/{x}/{y}.png"
-            ></ha-textfield>
+            ></ha-selector>
             <div id="tile_url_helper" class="helper">Shown only for Custom URL map style.</div>
             <ha-selector id="attribution_opacity"></ha-selector>
             <div class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
@@ -3359,6 +3359,18 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       tileUrl: this.shadowRoot.getElementById("tile_url"),
       tileUrlHelper: this.shadowRoot.getElementById("tile_url_helper"),
     };
+
+    for (const control of [this._refs.title, this._refs.subtitle, this._refs.subtitleLabel, this._refs.subtitleSuffix, this._refs.subtitleFallback, this._refs.color, this._refs.cartoApiKey, this._refs.tileUrl, this._refs.markerImage, this._refs.markerImageNight]) {
+      control.label = control.getAttribute("label");
+      control.selector = { text: { type: control.id === "carto_api_key" ? "password" : "text" } };
+      control.addEventListener("value-changed", (event) => {
+        if (control.id === "marker_image" || control.id === "marker_image_night") {
+          this._updateConfigValue(control.id, String(event.detail.value || "").trim());
+        } else {
+          this._handleFieldChange({ target: { id: control.id, value: event.detail.value || "" } });
+        }
+      });
+    }
 
     this._refs.tapAction.label = "Tap behavior";
     this._refs.tapAction.defaultAction = "more-info";
