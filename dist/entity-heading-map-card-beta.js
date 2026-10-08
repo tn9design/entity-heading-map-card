@@ -25643,6 +25643,16 @@ var EntityHeadingMapCard = class extends HTMLElement {
             sans-serif;
         }
 
+        .speedometer.parked .speedometer-content {
+          gap: 0;
+          transform: none;
+        }
+
+        .speedometer.parked .speedometer-value {
+          line-height: 1;
+          letter-spacing: 0;
+        }
+
         .speedometer-unit {
           font-size: 0.42rem;
           font-weight: 600;
@@ -26735,6 +26745,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
       return;
     }
     speedometerEl.hidden = false;
+    speedometerEl.classList.toggle("parked", inPark);
     speedometerEl.classList.toggle("preview-interactive", showEditorPreview);
     speedometerEl.classList.toggle("classic", speedometerStyle === "classic");
     speedometerEl.classList.toggle("gauge", speedometerStyle === "gauge");
