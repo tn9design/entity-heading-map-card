@@ -4078,10 +4078,14 @@ if (!customElements.get(`${CARD_TAG}-editor`)) {
   customElements.define(`${CARD_TAG}-editor`, EntityHeadingMapCardEditor);
 }
 
+if (CARD_TAG === "entity-heading-map-card") {
 window.customCards = window.customCards || [];
+window.customCards = window.customCards.filter((card) => card.type !== CARD_TAG);
 window.customCards.push({
   type: CARD_TAG,
-  name: "Advanced Map Card 3000",
+  name: "Advanced Map Heading Card 3000GT",
   preview: true,
   description: "Shows one or more entities on a map with a directional heading arrow.",
 });
+
+}

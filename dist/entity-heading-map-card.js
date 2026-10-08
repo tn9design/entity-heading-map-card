@@ -1,4 +1,4 @@
-/* Advanced Map Card 3000 0.3.0-beta.1 */
+/* Advanced Map Heading Card 3000GT 0.3.0-beta.1 */
 /* MapLibre GL JS 6.4.1
 ==================
 Copyright (c) 2023, MapLibre contributors
@@ -28026,10 +28026,13 @@ if (!customElements.get(CARD_TAG)) {
 if (!customElements.get(`${CARD_TAG}-editor`)) {
   customElements.define(`${CARD_TAG}-editor`, EntityHeadingMapCardEditor);
 }
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: CARD_TAG,
-  name: "Advanced Map Card 3000",
-  preview: true,
-  description: "Shows one or more entities on a map with a directional heading arrow."
-});
+if (CARD_TAG === "entity-heading-map-card") {
+  window.customCards = window.customCards || [];
+  window.customCards = window.customCards.filter((card) => card.type !== CARD_TAG);
+  window.customCards.push({
+    type: CARD_TAG,
+    name: "Advanced Map Heading Card 3000GT",
+    preview: true,
+    description: "Shows one or more entities on a map with a directional heading arrow."
+  });
+}

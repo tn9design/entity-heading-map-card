@@ -15,7 +15,7 @@ await build({
   stdin: { contents: source.replaceAll("__CARD_TAG__", tag), resolveDir: path.join(rootDir, "src"), sourcefile: "entity-heading-map-card.js" },
   outfile: path.join(rootDir, "dist", filename), bundle: true, format: "esm", target: "es2020", minify: false,
   loader: { ".css": "text" }, legalComments: "inline",
-  banner: { js: `/* Advanced Map Card 3000 ${packageJson.version}${beta ? " isolated beta" : ""} */\n/* ${notices.replaceAll("*/", "* /")} */` },
+  banner: { js: `/* Advanced Map Heading Card 3000GT ${packageJson.version}${beta ? " isolated beta" : ""} */\n/* ${notices.replaceAll("*/", "* /")} */` },
   plugins: [{ name: "existing-leaflet", setup(builder) {
     builder.onResolve({ filter: /^card-vector-worker$/ }, () => ({ path: "worker", namespace: "card-worker" }));
     builder.onLoad({ filter: /.*/, namespace: "card-worker" }, () => ({ contents: `export default ${JSON.stringify(worker.outputFiles[0].text)};`, loader: "js" }));
