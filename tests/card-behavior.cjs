@@ -76,6 +76,8 @@ assert.equal(card._getSubtitle([speedPoint]),'Parked');
 console.log('Passed: Speed Or Parked shares the configured speed sensor and handles zero speed.');
 
 assert.equal(normalize({max_width:480}).max_width,480);
+for (const width of [1,100,279,280]) assert.equal(normalize({max_width:width}).max_width,280);
+assert.equal(normalize({max_width:0}).max_width,0);
 assert.equal(normalize({max_width:-5}).max_width,0);
 assert.equal(normalize({header_icon_color:'#ffffff',header_icon_background:'#2255aa'}).header_icon_background,'#2255aa');
 assert.equal(normalize({header_icon_color:'url(example)'}).header_icon_color,'');

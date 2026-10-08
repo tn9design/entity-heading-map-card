@@ -25134,7 +25134,7 @@ var normalizeCardConfig = (config = {}) => {
     zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
     fit_bounds: config.fit_bounds !== false,
     height: normalizeHeight(config.height),
-    max_width: Math.max(0, asNumber(config.max_width) ?? 0),
+    max_width: (asNumber(config.max_width) ?? 0) > 0 ? Math.max(280, asNumber(config.max_width)) : 0,
     header_icon_color: /^#[0-9a-f]{6}$/i.test(config.header_icon_color || "") ? config.header_icon_color : "",
     header_icon_background: /^#[0-9a-f]{6}$/i.test(config.header_icon_background || "") ? config.header_icon_background : "",
     color: normalizeHex(config.color),
@@ -27383,7 +27383,7 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
             <div id="tile_url_helper" class="helper">Shown only for Custom URL map style.</div>
             <ha-selector id="attribution_opacity"></ha-selector>
             <div class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
-            <div class="row"><ha-selector id="height"></ha-selector><ha-selector id="max_width" label="Maximum Width"></ha-selector></div><div class="helper">Height sets the map height. Maximum width centers the card within its dashboard space; 0 fills available space.</div>
+            <div class="row"><ha-selector id="height"></ha-selector><ha-selector id="max_width" label="Maximum Width"></ha-selector></div><div class="helper">Height sets the map height. Maximum width centers the card within its dashboard space. Custom widths have a 280 px minimum; 0 fills available space.</div>
           </div>
         </ha-expansion-panel>
 
