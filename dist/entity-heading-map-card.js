@@ -27867,26 +27867,35 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     if (!this._rendered || !this._hass) return;
     const selectedDevice = this._findSelectedDeviceMatch()?.deviceId || this._config.device_id;
     const registry = new Map(this._entityRegistry.map((entry) => [entry.entity_id, entry]));
+    const devices = new Map(this._deviceRegistry.map((device) => [device.id, device]));
+    const entityInfo = /* @__PURE__ */ new Map();
     const numeric = (state) => state && !["", "unknown", "unavailable"].includes(state.state) && Number.isFinite(Number(state.state));
     const fields = [["entity", "Location Entity"], ["heading_entity", "Heading Entity"], ["speed_entity", "Speed Entity"], ["gear_entity", "Gear / Shift State"], ["latitude_entity", "Latitude Entity"], ["longitude_entity", "Longitude Entity"]];
     const info = (id3) => {
+      if (entityInfo.has(id3)) return entityInfo.get(id3);
       const entry = registry.get(id3);
-      const device = this._deviceRegistry.find((item) => item.id === entry?.device_id);
+      const device = devices.get(entry?.device_id);
       const platform = entry?.platform || "Custom";
       const integration = platform === "tesla_fleet" ? "Tesla Fleet" : platform === "mqtt" ? "MQTT" : platform;
-      return { name: this._hass.states[id3]?.attributes?.friendly_name || entry?.name || id3, context: `${integration} | ${device?.name_by_user || device?.name || "Other Entities"} \xB7 ${id3}`, related: entry?.device_id === selectedDevice };
+      const result = { name: this._hass.states[id3]?.attributes?.friendly_name || entry?.name || id3, context: `${integration} | ${device?.name_by_user || device?.name || "Other Entities"} \xB7 ${id3}`, related: entry?.device_id === selectedDevice };
+      entityInfo.set(id3, result);
+      return result;
     };
     const query = (this.shadowRoot.getElementById("vehicle_entity_search")?.value || "").trim().toLowerCase();
     for (const [field, title] of fields) {
       const picker = this.shadowRoot.getElementById(field);
       const current = this._config[field];
       const summary = picker.querySelector("summary");
-      summary.replaceChildren(document.createTextNode(`${title}: ${current ? info(current).name : field === "heading_entity" ? "Automatic / Location Heading" : field === "gear_entity" ? "Automatic / Speed Fallback" : "None"}`));
-      if (current) {
-        const context = document.createElement("span");
-        context.className = "entity-context";
-        context.textContent = info(current).context;
-        summary.append(context);
+      const summarySignature = JSON.stringify([current, current ? info(current) : null]);
+      if (picker._summarySignature !== summarySignature) {
+        summary.replaceChildren(document.createTextNode(`${title}: ${current ? info(current).name : field === "heading_entity" ? "Automatic / Location Heading" : field === "gear_entity" ? "Automatic / Speed Fallback" : "None"}`));
+        if (current) {
+          const context = document.createElement("span");
+          context.className = "entity-context";
+          context.textContent = info(current).context;
+          summary.append(context);
+        }
+        picker._summarySignature = summarySignature;
       }
       const list = picker.querySelector(".entity-options");
       picker.ontoggle = () => {
@@ -27903,7 +27912,9 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       if (current && !ids.includes(current)) ids.push(current);
       ids = ids.filter((id3) => !query || `${info(id3).name} ${info(id3).context}`.toLowerCase().includes(query) || id3 === current);
       ids.sort((a2, b2) => Number(info(b2).related) - Number(info(a2).related) || info(a2).name.localeCompare(info(b2).name));
-      list.replaceChildren();
+      const listSignature = JSON.stringify([current, ids.map((id3) => [id3, info(id3)])]);
+      if (picker._listSignature === listSignature) continue;
+      const fragment = document.createDocumentFragment();
       for (const id3 of ["", ...ids]) {
         const button = document.createElement("button");
         button.type = "button";
@@ -27919,8 +27930,10 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
           picker.open = false;
           this._updateConfigValue(field, id3 || void 0);
         });
-        list.append(button);
+        fragment.append(button);
       }
+      list.replaceChildren(fragment);
+      picker._listSignature = listSignature;
     }
   }
   _findSelectedDeviceMatch() {

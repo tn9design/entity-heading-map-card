@@ -3809,22 +3809,31 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     if (!this._rendered || !this._hass) return;
     const selectedDevice = this._findSelectedDeviceMatch()?.deviceId || this._config.device_id;
     const registry = new Map(this._entityRegistry.map(entry => [entry.entity_id, entry]));
+    const devices = new Map(this._deviceRegistry.map(device => [device.id, device]));
+    const entityInfo = new Map();
     const numeric = state => state && !["", "unknown", "unavailable"].includes(state.state) && Number.isFinite(Number(state.state));
     const fields = [["entity", "Location Entity"], ["heading_entity", "Heading Entity"], ["speed_entity", "Speed Entity"], ["gear_entity", "Gear / Shift State"], ["latitude_entity", "Latitude Entity"], ["longitude_entity", "Longitude Entity"]];
     const info = id => {
+      if (entityInfo.has(id)) return entityInfo.get(id);
       const entry = registry.get(id);
-      const device = this._deviceRegistry.find(item => item.id === entry?.device_id);
+      const device = devices.get(entry?.device_id);
       const platform = entry?.platform || "Custom";
       const integration = platform === "tesla_fleet" ? "Tesla Fleet" : platform === "mqtt" ? "MQTT" : platform;
-      return {name:this._hass.states[id]?.attributes?.friendly_name || entry?.name || id, context:`${integration} | ${device?.name_by_user || device?.name || "Other Entities"} · ${id}`, related:entry?.device_id === selectedDevice};
+      const result = {name:this._hass.states[id]?.attributes?.friendly_name || entry?.name || id, context:`${integration} | ${device?.name_by_user || device?.name || "Other Entities"} · ${id}`, related:entry?.device_id === selectedDevice};
+      entityInfo.set(id, result);
+      return result;
     };
     const query = (this.shadowRoot.getElementById("vehicle_entity_search")?.value || "").trim().toLowerCase();
     for (const [field, title] of fields) {
       const picker = this.shadowRoot.getElementById(field);
       const current = this._config[field];
       const summary = picker.querySelector("summary");
+      const summarySignature = JSON.stringify([current, current ? info(current) : null]);
+      if (picker._summarySignature !== summarySignature) {
       summary.replaceChildren(document.createTextNode(`${title}: ${current ? info(current).name : field === "heading_entity" ? "Automatic / Location Heading" : field === "gear_entity" ? "Automatic / Speed Fallback" : "None"}`));
       if (current) { const context = document.createElement("span"); context.className = "entity-context"; context.textContent = info(current).context; summary.append(context); }
+        picker._summarySignature = summarySignature;
+      }
       const list = picker.querySelector(".entity-options");
       picker.ontoggle = () => { if (picker.open) this._applyVehicleEntityOptions(); };
       if (!picker.open) continue;
@@ -3838,14 +3847,18 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       if (current && !ids.includes(current)) ids.push(current);
       ids = ids.filter(id => !query || `${info(id).name} ${info(id).context}`.toLowerCase().includes(query) || id === current);
       ids.sort((a,b) => Number(info(b).related) - Number(info(a).related) || info(a).name.localeCompare(info(b).name));
-      list.replaceChildren();
+      const listSignature = JSON.stringify([current, ids.map(id => [id, info(id)])]);
+      if (picker._listSignature === listSignature) continue;
+      const fragment = document.createDocumentFragment();
       for (const id of ["", ...ids]) {
         const button = document.createElement("button"); button.type = "button"; button.setAttribute("aria-pressed", String(id === (current || "")));
         button.textContent = id ? info(id).name : "None / Automatic";
         if (id) { const context = document.createElement("span"); context.className = "entity-context"; context.textContent = `${info(id).related ? "Selected Vehicle · " : ""}${info(id).context}`; button.append(context); }
         button.addEventListener("click", () => { picker.open = false; this._updateConfigValue(field, id || undefined); });
-        list.append(button);
+        fragment.append(button);
       }
+      list.replaceChildren(fragment);
+      picker._listSignature = listSignature;
     }
   }
 

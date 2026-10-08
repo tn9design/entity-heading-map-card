@@ -133,3 +133,23 @@ let removed=false;card._tileLayer={remove:()=>{removed=true;}};
 card._config.maptiler_api_key='';card._syncTileLayer();
 assert.equal(removed,true);assert.equal(card._tileLayer,null);
 console.log('Passed: manual source preservation, satellite provider isolation, encoded key, attribution and missing-key handling.');
+
+// Routine HA state updates must preserve menu nodes and scroll position.
+let createdMenuNodes=0;
+function menuNode(){createdMenuNodes++;return {children:[],append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},setAttribute(){},addEventListener(){}};}
+context.document={createElement:menuNode,createTextNode:menuNode,createDocumentFragment:menuNode};
+const menus=new Map(['entity','heading_entity','speed_entity','gear_entity','latitude_entity','longitude_entity'].map(field=>{const summary=menuNode(),list=menuNode();return [field,{open:field==='speed_entity',querySelector:s=>s==='summary'?summary:list}];}));
+const queryField={value:''};
+editor.shadowRoot={getElementById:id=>id==='vehicle_entity_search'?queryField:menus.get(id)};
+editor._rendered=true;editor._compatibleDevices=[];editor._config={device_id:'car',speed_entity:'sensor.speed_0'};
+editor._deviceRegistry=[{id:'car',name:'Car'},{id:'other',name:'Other'}];
+editor._entityRegistry=[];editor._hass={states:{}};
+for(let i=0;i<1200;i++){const id=`sensor.speed_${i}`;editor._entityRegistry.push({entity_id:id,device_id:i<10?'car':'other',platform:'mqtt'});editor._hass.states[id]={state:'0',attributes:{friendly_name:`Speed ${i}`}};}
+editor._applyVehicleEntityOptions();
+const initialNodes=createdMenuNodes;
+editor._hass.states['sensor.speed_0'].state='5';editor._applyVehicleEntityOptions();
+assert.equal(createdMenuNodes,initialNodes,'Numeric state updates should not recreate unchanged menu rows');
+queryField.value='Speed 1199';editor._applyVehicleEntityOptions();
+assert.ok(createdMenuNodes>initialNodes,'Search changes should refresh results');
+assert.equal(menus.get('speed_entity').querySelector('.entity-options').children[0].children.length,3,'Search keeps blank, selected and matched options');
+console.log('Passed: 1200-entity menu reuse during HA updates, live search and selected option preservation.');
