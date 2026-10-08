@@ -119,7 +119,7 @@ assert.equal(editor._config.gear_entity,'sensor.manual_gear');
 assert.equal(normalize({map_provider:'satellite'}).map_provider,'satellite');
 card._config=normalize({map_provider:'satellite',maptiler_api_key:'a&b',carto_api_key:'private'});
 card._tileLayer=null;card._syncTileLayer();
-assert.equal(url,'https://api.maptiler.com/tiles/satellite-v4/{z}/{x}/{y}?key=a%26b');
+assert.equal(url,'https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=a%26b');
 assert.ok(!url.includes('private'));
 assert.match(options.attribution,/MapTiler/);
 assert.match(options.attribution,/logo.svg/);

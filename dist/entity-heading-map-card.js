@@ -26185,7 +26185,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
   }
   _getResolvedTileUrl() {
     if (this._config.map_provider === "satellite") {
-      return `https://api.maptiler.com/tiles/satellite-v4/{z}/{x}/{y}?key=${encodeURIComponent(firstNonEmptyString(this._config.maptiler_api_key) || "")}`;
+      return `https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=${encodeURIComponent(firstNonEmptyString(this._config.maptiler_api_key) || "")}`;
     }
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
     const tileStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
