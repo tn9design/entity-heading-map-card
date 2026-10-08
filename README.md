@@ -5,12 +5,12 @@
     <img src="https://img.shields.io/badge/version-v0.2.0-1e88e5?style=flat-square" alt="Version" />
   </a>
   <a href="https://www.hacs.xyz/">
-    <img src="https://img.shields.io/badge/HACS-Default-fc8d3d?style=flat-square" alt="HACS Default" />
+    <img src="https://img.shields.io/badge/HACS-Custom%20repository-fc8d3d?style=flat-square" alt="HACS custom repository" />
   </a>
 </p>
 
 <p align="left">
-  A polished Home Assistant Lovelace map card for showing one or more tracked entities with a directional heading marker.
+  An initial-beta Home Assistant Lovelace map card for showing one or more tracked entities with a directional heading marker.
 </p>
 
 It is designed for tracked objects such as:
@@ -22,11 +22,13 @@ It is designed for tracked objects such as:
 - bikes
 - anything else that exposes coordinates and an optional heading
 
-The card uses Leaflet with built-in CARTO tile styles by default, so there is no API key, account setup, or paid map provider required.
+The card uses Leaflet with built-in CARTO tile styles. CARTO requires your own API key; personal, non-commercial use has a free allowance. See the CARTO setup instructions below.
 
 <p align="left">
   <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
 </p>
+
+**Beta status:** Features and configuration menus are still evolving. The editor is planned for simplification and reorganization. Heading-aware markers are a core feature.
 
 ## Why This Card
 
@@ -39,7 +41,7 @@ The card uses Leaflet with built-in CARTO tile styles by default, so there is no
 ## Features
 
 - HACS-friendly frontend card
-- No-key CARTO map styles with built-in light/dark switching
+- CARTO map styles with your own API key and built-in light/dark switching
 - Supports one or many entities
 - Rotated heading arrow when heading is available
 - Blue dot fallback when heading is not available
@@ -61,11 +63,7 @@ The easiest path is to open the repository directly in HACS using the button abo
 
 #### HACS Install
 
-1. Open `HACS`.
-2. Search for `Advanced Map Card 3000`.
-3. Install the card and hard refresh the browser after HACS finishes.
-
-If the repository does not appear yet because local HACS metadata is stale, you can still add it manually:
+The card is currently available as a custom repository. Default-catalog listing is being prepared; it is not searchable in the default catalog yet.
 
 1. Open `HACS` -> `Custom repositories`.
 2. Add:
