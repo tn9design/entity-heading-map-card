@@ -2704,8 +2704,8 @@ class EntityHeadingMapCard extends HTMLElement {
         return this._formatSpeed(point) || firstNonEmptyString(this._config?.subtitle_fallback);
       case "speed_or_parked":
         return this._isMoving(point)
-          ? this._formatSpeed(point) || this._getStatusLabel(point) || firstNonEmptyString(this._config?.subtitle_fallback, "Parked")
-          : firstNonEmptyString(this._config?.subtitle_fallback, "Parked");
+          ? this._formatSpeed(point) || this._getStatusLabel(point) || "Parked"
+          : "Parked";
       case "heading":
         return point.heading !== null ? `Heading ${Math.round(point.heading)}°` : firstNonEmptyString(this._config?.subtitle_fallback);
       case "last_updated":
@@ -3939,7 +3939,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     const usesEntity = mode === "custom_entity";
     const usesLabel = mode === "custom_entity";
     const usesSuffix = mode === "custom_entity";
-    const usesFallback = ["speed", "speed_or_parked", "heading", "last_updated", "custom_entity"].includes(mode);
+    const usesFallback = ["speed", "heading", "last_updated", "custom_entity"].includes(mode);
 
     this._setEditorVisibility(this._refs.subtitle, usesText);
     this._setEditorVisibility(this._refs.subtitleEntity, usesEntity);

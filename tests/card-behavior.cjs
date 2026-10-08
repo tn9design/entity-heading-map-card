@@ -70,6 +70,7 @@ card._config={speed_entity:'sensor.vehicle_speed',subtitle_entity:'device_tracke
 card._hass={states:{'sensor.vehicle_speed':{state:'24',attributes:{unit_of_measurement:'mph'}},'device_tracker.vehicle':{state:'home',attributes:{}}}};
 const speedPoint={entityState:card._hass.states['device_tracker.vehicle']};
 assert.equal(card._getSubtitle([speedPoint]),'24 mph');
+card._config.subtitle_fallback='Custom stopped text';
 card._hass.states['sensor.vehicle_speed'].state='0';
 assert.equal(card._getSubtitle([speedPoint]),'Parked');
 console.log('Passed: Speed Or Parked shares the configured speed sensor and handles zero speed.');
@@ -84,7 +85,7 @@ for(const key of ['subtitle','subtitleEntity','subtitleLabel','subtitleSuffix','
 visibilityEditor._config={subtitle_mode:'speed_or_parked'}; visibilityEditor._syncSubtitleEditorState();
 assert.equal(visibilityEditor._refs.subtitleEntity.hidden,true);
 assert.equal(visibilityEditor._refs.subtitleSuffix.hidden,true);
-assert.equal(visibilityEditor._refs.subtitleFallback.hidden,false);
+assert.equal(visibilityEditor._refs.subtitleFallback.hidden,true);
 visibilityEditor._config.subtitle_mode='custom_entity'; visibilityEditor._syncSubtitleEditorState();
 assert.equal(visibilityEditor._refs.subtitleEntity.hidden,false);
 console.log('Passed: width bounds, safe independent header colors and subtitle control visibility.');
