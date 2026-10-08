@@ -2,7 +2,7 @@
 
 <p align="left">
   <a href="https://github.com/tn9design/entity-heading-map-card">
-    <img src="https://img.shields.io/badge/version-v0.1.0-1e88e5?style=flat-square" alt="Version" />
+    <img src="https://img.shields.io/badge/version-v0.2.0-1e88e5?style=flat-square" alt="Version" />
   </a>
   <a href="https://www.hacs.xyz/">
     <img src="https://img.shields.io/badge/HACS-Default-fc8d3d?style=flat-square" alt="HACS Default" />
@@ -202,12 +202,38 @@ The built-in editor is organized the same way the card is typically configured i
 - `fit_bounds`: Fit all markers into view when more than one marker is present. Default: `true`.
 - `entities`: Array of marker definitions for multi-marker layouts.
 
+## Getting a free CARTO key
+
+The built-in map styles use CARTO raster tiles. CARTO now requires an API key; without one, tiles may show “API key required”. Each user should request their own key rather than reuse someone else's.
+
+1. Visit [CARTO's Basemaps API-key page](https://www.carto.com/basemaps/apikey/).
+2. For a personal Home Assistant dashboard, select **No — personal, hobby, academic, or non-profit**. Describe the project, for example: “Personal Home Assistant dashboard showing household and vehicle locations.”
+3. Review and accept CARTO's terms and attribution requirement. CARTO emails the key; dashboard sign-in uses an emailed link rather than a password.
+4. Open the card's visual editor, expand **Map Style & Layout**, paste the key into **CARTO API key**, and save. Keep your preferred built-in map style; no custom tile URL is needed.
+
+As of October 2026, CARTO offers up to **5 million requests per calendar month for non-commercial use**, across your keys. Check the linked provider page for current terms and quotas. Website, app, and IP restrictions are optional; configure them to match all the ways you access HA, including its Companion app and remote access.
+
+The key is stored in the dashboard configuration and sent to CARTO with tile requests. The password field hides it visually, but does not make it a server-side secret. Dashboard users can access it; do not post real keys in shared YAML, screenshots, issues, or repositories. The card only attaches this key to CARTO tile URLs, never to another provider.
+
+YAML example (replace the placeholder locally):
+
+```yaml
+type: custom:entity-heading-map-card
+entity: device_tracker.my_car
+tile_style: default
+carto_api_key: YOUR_OWN_CARTO_KEY
+```
+
+CARTO attribution is always shown for CARTO maps. Raster tiles are limited to native zoom 18; closer zoom levels enlarge those tiles instead of requesting unsupported zoom levels. If old watermarked tiles linger, refresh your browser. Custom providers still use `tile_url`, `tile_attribution`, and their own authentication requirements.
+
 #### Advanced Tile Options
 
+- `carto_api_key`: Your CARTO Basemaps key. Available in the visual editor; applied only to CARTO tile URLs.
 - `tile_url`: Tile URL template. Used when `tile_style` is set to `custom`.
 - `tile_attribution`: Attribution string for the tile layer.
 - `tile_subdomains`: Tile subdomain string. Default: `abcd`.
-- `show_attribution`: Show or hide map attribution. Default: `false`.
+- `attribution_opacity`: Opacity of the entire attribution strip (background and text), from `0` to `100`. Default: `100`. Available as a slider under **Map Style & Layout**. Keep provider credits readable as required by their terms.
+- `show_attribution`: Show or hide map attribution. Default: `false` for custom non-CARTO providers; always visible for CARTO maps.
 
 #### Advanced Map Settings
 
@@ -260,4 +286,27 @@ The current scaffold keeps the source file in `src/` and copies it to `dist/`:
 
 ```bash
 npm run build
+```
+
+### Custom image markers
+
+In **On-Map Display**, select **Custom image**, enter day and optional night image URLs, and set **Custom image size** (24–160 px). Size stays fixed on screen while zooming and includes transparent image margins. Images should point nose-up; the card rotates them using the reported heading. Without a heading, the image points north. Arrow size is stored separately.
+
+**Automatic (sun)** uses the night image when `sun.sun` is below the horizon; otherwise it uses the day image. A missing night image falls back to the day image. Use Day or Night to preview either manually. Local files in `/config/www` are served at `/local/`.
+
+```yaml
+marker_type: image
+marker_image: /local/car-map-markers/onyx-model-s-day.png
+marker_image_night: /local/car-map-markers/onyx-model-s-night.png
+marker_image_mode: auto
+marker_image_size: 80
+```
+
+### Automatic vehicle lights
+
+Custom image markers show the headlight wash and faint red rear glow after sunset (`sun.sun` below horizon). Set the optional **Gear entity** in On-Map Display: `P`/`Park`/`Parked` keeps lights off; `D`/`Drive`, `R`/`Reverse`, or `N`/`Neutral` turns them on even at zero speed. With absent, unavailable or unrecognized gear, lights use the configured speed entity (or source speed attributes) above zero. Unknown sun state keeps lights off. The **Show headlights at night** switch disables both effects. Night image artwork may include lit lamps even when these additional glows are off.
+
+```yaml
+show_headlights: true
+gear_entity: sensor.onyx_onyx_shift_state
 ```

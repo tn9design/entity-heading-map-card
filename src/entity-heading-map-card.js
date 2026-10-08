@@ -9,18 +9,32 @@ const DEFAULT_LIGHT_NOLABELS_TILE_URL = "https://{s}.basemaps.cartocdn.com/light
 const DEFAULT_DARK_NOLABELS_TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
 const DEFAULT_VOYAGER_NOLABELS_TILE_URL =
   "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png";
-const DEFAULT_TILE_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO";
+const DEFAULT_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const isCartoTileUrl = (url) => /^https:\/\/(?:\{s\}\.|[a-d]\.)?basemaps\.cartocdn\.com\//i.test(url);
+const withCartoApiKey = (url, key) => {
+  if (!isCartoTileUrl(url) || !key?.trim()) return url;
+  const parsed = new URL(url);
+  parsed.searchParams.set("key", key.trim());
+  // Preserve Leaflet's template placeholders while encoding the API key.
+  return parsed.toString().replaceAll("%7B", "{").replaceAll("%7D", "}");
+};
 const DEFAULT_MARKER_COLOR = "#3388ff";
 const DEFAULT_CARD_HEIGHT = "320px";
 const DEFAULT_MARKER_SIZE = 32;
 const DEFAULT_ZOOM = 19;
 const SPEED_ZOOM_STEP_MPH = 20;
+const SPEED_ZOOM_SNAP = 0.1;
+const SPEED_ZOOM_EPSILON = 0.04;
+const GAUGE_SEGMENT_COUNT = 36;
+const GAUGE_WARNING_RATIO = 80 / 85;
 const DEFAULT_TAP_ACTION = Object.freeze({ action: "more-info" });
 const DEFAULT_ICON_TAP_ACTION = Object.freeze({ action: "none" });
 const ZOOM_CONTROL_POSITIONS = new Set(["topleft", "bottomleft", "bottomright", "hidden"]);
 const STYLE_PRESETS = new Set(["default", "mushroom"]);
 const TILE_STYLE_PRESETS = new Set(["default", "dark", "voyager"]);
 const TILE_STYLE_EDITOR_OPTIONS = new Set(["default", "dark", "voyager", "custom"]);
+const SPEEDOMETER_STYLES = new Set(["classic", "gauge"]);
+const MARKER_TOOLTIP_MODES = new Set(["off", "name"]);
 const SUBTITLE_MODES = new Set([
   "none",
   "custom_text",
@@ -50,6 +64,7 @@ const ADDRESS_ATTRIBUTE_KEYS = [
 ];
 const EMPTY_STATES = new Set(["", "unknown", "unavailable", "none", "null"]);
 const MOVING_STATES = new Set(["drive", "driving", "moving", "in_transit", "reverse", "r"]);
+const PARKED_STATES = new Set(["park", "parked", "p"]);
 const LEAFLET_BASE_CSS = `
   .leaflet-pane,
   .leaflet-tile,
@@ -225,15 +240,19 @@ const LEAFLET_BASE_CSS = `
   }
 
   .leaflet-control-attribution {
-    background: rgba(28, 30, 35, 0.8);
-    color: rgba(255, 255, 255, 0.78);
+    background: rgb(28, 30, 35);
+    opacity: var(--attribution-opacity, 1);
+    color: #fff;
+    text-shadow: 0 1px 2px #000, 0 0 2px #000;
     font-size: 11px;
     line-height: 1.4;
-    padding: 4px 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    box-shadow: none;
   }
 
   .leaflet-control-attribution a {
-    color: #8cb4ff;
+    color: #fff;
     text-decoration: none;
   }
 
@@ -369,6 +388,32 @@ const parsePixelHeight = (value) => {
   }
 
   return null;
+};
+
+const formatSpeedUnitLabel = (value) => {
+  const normalized = (firstNonEmptyString(value) || "").trim().toLowerCase();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (/(^|[^a-z])mph([^a-z]|$)|mi\/h|miles?\s*per\s*hour/.test(normalized)) {
+    return "MPH";
+  }
+
+  if (/km\/h|kmh|kph|kilometers?\s*per\s*hour/.test(normalized)) {
+    return "KM/H";
+  }
+
+  if (/knots?|kts?/.test(normalized)) {
+    return "KTS";
+  }
+
+  if (/m\/s|meters?\s*per\s*second/.test(normalized)) {
+    return "M/S";
+  }
+
+  return normalized.toUpperCase();
 };
 
 const inferTileStyleFromUrl = (tileUrl) => {
@@ -695,22 +740,31 @@ const normalizeCardConfig = (config = {}) => {
     height: normalizeHeight(config.height),
     color: normalizeHex(config.color),
     marker_size: asNumber(config.marker_size) ?? DEFAULT_MARKER_SIZE,
+    show_headlights: config.show_headlights !== false,
+    gear_entity: firstNonEmptyString(config.gear_entity) || "",
+    marker_type: normalizeSelectValue(config.marker_type, new Set(["arrow", "image"]), "arrow"),
+    marker_image: firstNonEmptyString(config.marker_image) || "",
+    marker_image_night: firstNonEmptyString(config.marker_image_night) || "",
+    marker_image_mode: normalizeSelectValue(config.marker_image_mode, new Set(["auto", "day", "night"]), "auto"),
+    marker_image_size: Math.min(160, Math.max(24, asNumber(config.marker_image_size) ?? 80)),
     tile_url: tileUrl,
     tile_attribution: config.tile_attribution || DEFAULT_TILE_ATTRIBUTION,
     tile_subdomains: config.tile_subdomains || "abcd",
     show_attribution: config.show_attribution === true,
+    attribution_opacity: Math.min(100, Math.max(0, asNumber(config.attribution_opacity) ?? 100)),
     show_map_labels:
       typeof inferredShowMapLabels === "boolean" && config.show_map_labels === undefined
         ? inferredShowMapLabels
         : config.show_map_labels !== false,
     show_zoom_controls: config.zoom_control_position === "hidden" ? false : config.show_zoom_controls !== false,
+    show_recenter_button: config.show_recenter_button !== false,
     show_speedometer: config.show_speedometer === true,
     auto_zoom_by_speed: config.auto_zoom_by_speed === true,
     show_header: config.show_header !== false,
     zoom_control_position:
       config.show_zoom_controls === false
         ? "hidden"
-        : normalizeSelectValue(config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft"),
+        : normalizeSelectValue(config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "bottomleft"),
     subtitle: firstNonEmptyString(config.subtitle, config.subtitle_text) || "",
     subtitle_mode: normalizeSelectValue(
       config.subtitle_mode,
@@ -724,6 +778,8 @@ const normalizeCardConfig = (config = {}) => {
     subtitle_fallback: firstNonEmptyString(config.subtitle_fallback) || "",
     icon: firstNonEmptyString(config.icon) || "",
     style_preset: normalizeSelectValue(config.style_preset, STYLE_PRESETS, "mushroom"),
+    speedometer_style: normalizeSelectValue(config.speedometer_style, SPEEDOMETER_STYLES, "classic"),
+    marker_tooltip_mode: normalizeSelectValue(config.marker_tooltip_mode, MARKER_TOOLTIP_MODES, "off"),
     tile_style: normalizeSelectValue(
       config.tile_style,
       TILE_STYLE_EDITOR_OPTIONS,
@@ -762,6 +818,12 @@ const getResolvedBuiltInTileUrl = (tileStyle, darkMode, showMapLabels) => {
   return labelsEnabled ? DEFAULT_TILE_URL : DEFAULT_LIGHT_NOLABELS_TILE_URL;
 };
 
+const getGaugeSegmentsMarkup = () =>
+  Array.from({ length: GAUGE_SEGMENT_COUNT }, (_, index) => {
+    const rotation = 180 + index * (360 / GAUGE_SEGMENT_COUNT);
+    return `<span class="speedometer-segment" style="--segment-rotation:${rotation}deg"></span>`;
+  }).join("");
+
 class EntityHeadingMapCard extends HTMLElement {
   constructor() {
     super();
@@ -777,6 +839,9 @@ class EntityHeadingMapCard extends HTMLElement {
     this._leafletError = null;
     this._hasSizedMap = false;
     this._activePoint = null;
+    this._currentPoints = [];
+    this._previewSpeedValue = null;
+    this._previewSpeedAnimationFrame = null;
     this._viewInitialized = false;
     this._lastViewSignature = null;
 
@@ -887,17 +952,17 @@ class EntityHeadingMapCard extends HTMLElement {
         }
 
         .header-icon {
-          --mdc-icon-size: 24px;
+          --mdc-icon-size: 22px;
           color: inherit;
         }
 
         .preset-default .header-icon {
-          --mdc-icon-size: 22px;
+          --mdc-icon-size: 20px;
         }
 
         .title {
           font-family: var(--ha-card-header-font-family, inherit);
-          font-size: 1rem;
+          font-size: var(--ha-card-header-font-size, 1.12rem);
           font-weight: var(--ha-card-header-font-weight, 500);
           color: var(--primary-text-color);
           line-height: var(--ha-card-header-line-height, 1.3);
@@ -906,13 +971,13 @@ class EntityHeadingMapCard extends HTMLElement {
         .subtitle {
           margin-top: 3px;
           color: var(--secondary-text-color);
-          font-size: 0.83rem;
+          font-size: 0.79rem;
           line-height: 1.3;
         }
 
         .preset-default .subtitle {
           margin-top: 4px;
-          font-size: 0.88rem;
+          font-size: 0.82rem;
           line-height: 1.35;
         }
 
@@ -978,13 +1043,26 @@ class EntityHeadingMapCard extends HTMLElement {
 
         .preview-controls {
           position: absolute;
-          top: 14px;
-          left: 14px;
           display: flex;
           flex-direction: column;
           overflow: hidden;
           border-radius: 10px;
           box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+        }
+
+        .preview-controls.position-top-left {
+          top: 14px;
+          left: 14px;
+        }
+
+        .preview-controls.position-bottom-left {
+          left: 14px;
+          bottom: 14px;
+        }
+
+        .preview-controls.position-bottom-right {
+          right: 14px;
+          bottom: 14px;
         }
 
         .preview-control {
@@ -1012,6 +1090,7 @@ class EntityHeadingMapCard extends HTMLElement {
           height: max(38px, calc(var(--marker-size, 32px) * 1.2));
           transform: translate(-50%, -50%);
           filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+          pointer-events: none;
         }
 
         .preview-marker svg {
@@ -1030,6 +1109,11 @@ class EntityHeadingMapCard extends HTMLElement {
           stroke-linejoin: round;
           vector-effect: non-scaling-stroke;
           opacity: 1;
+        }
+
+        .preview-marker .marker-tooltip {
+          opacity: 1;
+          transform: translate(-50%, 0);
         }
 
         .marker-layer {
@@ -1063,24 +1147,91 @@ class EntityHeadingMapCard extends HTMLElement {
           top: 12px;
           right: 12px;
           z-index: 3;
+          max-width: calc(100% - 24px);
+          border-radius: 999px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          transition: opacity 0.18s ease, transform 0.22s ease;
+        }
+
+        .speedometer[hidden] {
+          display: none;
+        }
+
+        .speedometer.classic {
           width: 56px;
           height: 56px;
-          max-width: calc(100% - 24px);
           padding: 0;
-          border-radius: 999px;
           background: var(--card-background-color, #ffffff);
           color: var(--primary-text-color, #111111);
           box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+        }
+
+        .speedometer.gauge {
+          width: 74px;
+          height: 74px;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .speedometer-ring {
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          pointer-events: none;
+        }
+
+        .speedometer-segment {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 4px;
+          height: 10px;
+          border-radius: 999px;
+          background: var(--gauge-segment-base, rgba(255, 255, 255, 0.18));
+          transform: translate(-50%, -50%) rotate(var(--segment-rotation)) translateY(-31px);
+          transition: background-color 0.16s ease, opacity 0.16s ease;
+        }
+
+        .speedometer-segment.active {
+          background: var(--gauge-segment-active, rgba(255, 255, 255, 0.92));
+        }
+
+        .speedometer.gauge.warning .speedometer-segment.active {
+          background: var(--gauge-segment-warning, #f25f5c);
+        }
+
+        .speedometer-face {
+          display: none;
+        }
+
+        .speedometer.gauge .speedometer-face {
+          display: block;
+          position: absolute;
+          inset: 9px;
+          border-radius: inherit;
+          background: var(
+            --gauge-face-background,
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.1)),
+            linear-gradient(180deg, #334654, #233541)
+          );
+          box-shadow:
+            inset 0 1px 0 var(--gauge-face-highlight, rgba(255, 255, 255, 0.08)),
+            inset 0 -10px 20px var(--gauge-face-shadow, rgba(0, 0, 0, 0.18)),
+            0 7px 16px rgba(0, 0, 0, 0.22);
+        }
+
+        .speedometer-content {
+          position: relative;
+          z-index: 1;
           display: inline-flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
           gap: 1px;
-          pointer-events: none;
-        }
-
-        .speedometer[hidden] {
-          display: none;
+          text-align: center;
         }
 
         .speedometer-value {
@@ -1089,6 +1240,23 @@ class EntityHeadingMapCard extends HTMLElement {
           line-height: 0.95;
           letter-spacing: 0.01em;
           color: inherit;
+        }
+
+        .speedometer.gauge .speedometer-content {
+          gap: 2px;
+          transform: translateY(1px);
+        }
+
+        .speedometer.gauge .speedometer-value {
+          font-size: var(--speedometer-value-size, 1.96rem);
+          font-weight: 700;
+          line-height: 0.82;
+          letter-spacing: -0.06em;
+          font-family:
+            var(--ha-card-header-font-family, "Roboto Condensed"),
+            "Roboto Condensed",
+            system-ui,
+            sans-serif;
         }
 
         .speedometer-unit {
@@ -1104,6 +1272,104 @@ class EntityHeadingMapCard extends HTMLElement {
           display: none;
         }
 
+        .speedometer.gauge .speedometer-unit {
+          font-size: 0.52rem;
+          font-weight: 500;
+          letter-spacing: 0.03em;
+          color: var(--gauge-unit-color, rgba(255, 255, 255, 0.88));
+        }
+
+        ha-card.theme-dark .speedometer.gauge {
+          --gauge-segment-base: rgba(255, 255, 255, 0.16);
+          --gauge-segment-active: #9cb2c6;
+          --gauge-segment-warning: #ff6a63;
+          --gauge-face-background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.08)),
+            linear-gradient(180deg, #3a4d5c, #253744);
+          --gauge-face-highlight: rgba(255, 255, 255, 0.08);
+          --gauge-face-shadow: rgba(0, 0, 0, 0.2);
+          --gauge-unit-color: rgba(255, 255, 255, 0.88);
+          color: #ffffff;
+        }
+
+        ha-card.theme-light .speedometer.gauge {
+          --gauge-segment-base: rgba(110, 124, 138, 0.22);
+          --gauge-segment-active: #7d95ad;
+          --gauge-segment-warning: #e05d54;
+          --gauge-face-background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(235, 241, 245, 0.94)),
+            linear-gradient(180deg, #ffffff, #eef3f6);
+          --gauge-face-highlight: rgba(255, 255, 255, 0.92);
+          --gauge-face-shadow: rgba(88, 104, 120, 0.12);
+          --gauge-unit-color: rgba(48, 70, 90, 0.86);
+          color: #30495d;
+        }
+
+        .speedometer.preview-interactive {
+          pointer-events: auto;
+          cursor: pointer;
+        }
+
+        .recenter-button {
+          position: absolute;
+          z-index: 3;
+          width: 30px;
+          height: 30px;
+          border: 0;
+          border-radius: 8px;
+          background: var(--card-background-color, #ffffff);
+          color: var(--primary-text-color, #111111);
+          box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          cursor: pointer;
+          transition: background-color 0.16s ease, transform 0.18s ease;
+        }
+
+        .recenter-button.position-top-left {
+          top: 84px;
+          left: 12px;
+        }
+
+        .recenter-button.position-bottom-left {
+          bottom: 78px;
+          left: 12px;
+        }
+
+        .recenter-button.position-bottom-right {
+          bottom: 78px;
+          right: 12px;
+        }
+
+        .recenter-button.position-standalone {
+          top: 12px;
+          left: 12px;
+        }
+
+        .recenter-button:hover {
+          background: var(--secondary-background-color, #f3f4f6);
+        }
+
+        .recenter-button:active {
+          transform: scale(0.97);
+        }
+
+        .recenter-button[hidden] {
+          display: none;
+        }
+
+        .recenter-button svg {
+          width: 16px;
+          height: 16px;
+          stroke: currentColor;
+          fill: none;
+          stroke-width: 1.9;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
+
         .dom-marker {
           position: absolute;
           left: 0;
@@ -1114,6 +1380,24 @@ class EntityHeadingMapCard extends HTMLElement {
           pointer-events: none;
           filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.28));
           will-change: left, top, transform;
+        }
+
+        .car-marker-wrap {
+          position: relative; width: 100%; height: 100%;
+          transform: rotate(var(--heading, 0deg)); transform-origin: center;
+        }
+        .car-marker-image {
+          position: relative; width: 100%; height: 100%; object-fit: contain;
+        }
+        .dom-marker .car-marker-wrap svg.headlight-beams {
+          position: absolute; inset: 0; width: 100%; height: 100%;
+          overflow: visible; transform: none; pointer-events: none;
+          filter: blur(2px);
+        }
+
+        .dom-marker.has-tooltip {
+          pointer-events: auto;
+          cursor: pointer;
         }
 
         .dom-marker svg {
@@ -1146,6 +1430,38 @@ class EntityHeadingMapCard extends HTMLElement {
           opacity: 0.96;
         }
 
+        .marker-tooltip {
+          position: absolute;
+          left: 50%;
+          bottom: calc(100% + 10px);
+          transform: translate(-50%, 4px);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--ha-card-background, var(--card-background-color, #fff)) 96%, transparent);
+          color: var(--primary-text-color, #111111);
+          box-shadow:
+            0 5px 16px rgba(0, 0, 0, 0.18),
+            inset 0 0 0 1px color-mix(in srgb, var(--divider-color, rgba(0, 0, 0, 0.12)) 84%, transparent);
+          font-size: 0.74rem;
+          font-weight: 600;
+          line-height: 1;
+          letter-spacing: 0.01em;
+          white-space: nowrap;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.16s ease, transform 0.18s ease;
+        }
+
+        .dom-marker.has-tooltip:hover .marker-tooltip,
+        .dom-marker.has-tooltip.tooltip-pinned .marker-tooltip,
+        .dom-marker.has-tooltip:focus-visible .marker-tooltip {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+
       </style>
       <ha-card id="card">
         <div class="wrapper">
@@ -1161,16 +1477,30 @@ class EntityHeadingMapCard extends HTMLElement {
           <div id="map-shell" class="map-shell">
             <div id="map"></div>
             <div id="preview-overlay" class="preview-overlay" hidden>
-              <div class="preview-controls" aria-hidden="true">
+              <div id="preview-controls" class="preview-controls" aria-hidden="true">
                 <div class="preview-control">+</div>
                 <div class="preview-control">−</div>
               </div>
               <div id="preview-marker" class="preview-marker" aria-hidden="true"></div>
             </div>
-            <div id="speedometer" class="speedometer" hidden aria-live="polite">
-              <span id="speedometer-value" class="speedometer-value"></span>
-              <span id="speedometer-unit" class="speedometer-unit"></span>
+            <div id="speedometer" class="speedometer classic" hidden aria-live="polite">
+              <span class="speedometer-ring" aria-hidden="true">${getGaugeSegmentsMarkup()}</span>
+              <span class="speedometer-face" aria-hidden="true"></span>
+              <span class="speedometer-content">
+                <span id="speedometer-value" class="speedometer-value"></span>
+                <span id="speedometer-unit" class="speedometer-unit"></span>
+              </span>
             </div>
+            <button id="recenter-button" class="recenter-button" type="button" hidden aria-label="Recenter map">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v3"></path>
+                <path d="M12 18v3"></path>
+                <path d="M3 12h3"></path>
+                <path d="M18 12h3"></path>
+                <circle cx="12" cy="12" r="6"></circle>
+                <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </button>
             <div id="message" class="map-message">Loading map…</div>
             <div id="marker-layer" class="marker-layer" aria-hidden="true"></div>
           </div>
@@ -1182,6 +1512,12 @@ class EntityHeadingMapCard extends HTMLElement {
     this.shadowRoot
       .getElementById("icon-button")
       .addEventListener("click", (event) => this._handleIconTap(event));
+    this.shadowRoot
+      .getElementById("speedometer")
+      .addEventListener("click", (event) => this._handleSpeedometerClick(event));
+    this.shadowRoot
+      .getElementById("recenter-button")
+      .addEventListener("click", (event) => this._handleRecenterClick(event));
   }
 
   setConfig(config) {
@@ -1211,6 +1547,7 @@ class EntityHeadingMapCard extends HTMLElement {
     }
 
     this._syncZoomControl();
+    this._syncRecenterControl();
     this._initLeaflet();
 
     if (this._hass && this._leafletReady) {
@@ -1259,6 +1596,8 @@ class EntityHeadingMapCard extends HTMLElement {
     cardEl.classList.toggle("preset-default", stylePreset === "default");
     cardEl.classList.toggle("preset-mushroom", stylePreset === "mushroom");
     mapEl.style.height = normalizeHeight(this._config.height);
+    mapEl.style.setProperty("--attribution-opacity", String(this._config.attribution_opacity / 100));
+    this._syncThemeState();
     this._applyActionState();
 
     if (this._isPreviewMode()) {
@@ -1268,7 +1607,19 @@ class EntityHeadingMapCard extends HTMLElement {
 
     this._clearPreviewState();
     this._syncTileLayer();
+    this._syncRecenterControl();
     this._updateHeader([]);
+  }
+
+  _syncThemeState() {
+    const cardEl = this.shadowRoot?.getElementById("card");
+    if (!cardEl) {
+      return;
+    }
+
+    const darkMode = this._hass?.themes?.darkMode === true;
+    cardEl.classList.toggle("theme-dark", darkMode);
+    cardEl.classList.toggle("theme-light", !darkMode);
   }
 
   _isPreviewMode() {
@@ -1316,18 +1667,49 @@ class EntityHeadingMapCard extends HTMLElement {
     const cardEl = this.shadowRoot.getElementById("card");
     const mapShell = this.shadowRoot.querySelector(".map-shell");
     const previewOverlay = this.shadowRoot.getElementById("preview-overlay");
+    const previewControls = this.shadowRoot.getElementById("preview-controls");
     const previewMarker = this.shadowRoot.getElementById("preview-marker");
     const markerLayer = this.shadowRoot.getElementById("marker-layer");
     const messageEl = this.shadowRoot.getElementById("message");
     const headerEl = this.shadowRoot.getElementById("header");
+    const titleEl = this.shadowRoot.getElementById("title");
+    const subtitleEl = this.shadowRoot.getElementById("subtitle");
+    const iconButton = this.shadowRoot.getElementById("icon-button");
+    const iconEl = this.shadowRoot.getElementById("icon");
+    const zoomControlPosition = this._getZoomControlPosition();
+    const showHeader = this._config?.show_header !== false;
+    const previewTitle = firstNonEmptyString(this._config?.title, this._config?.name, "Onyx");
+    const previewSubtitle = showHeader ? "Parked" : "";
+    const previewIcon = firstNonEmptyString(this._config?.icon, "mdi:car-electric");
 
     cardEl.dataset.previewMode = "true";
     mapShell.classList.add("preview-mode");
     previewOverlay.hidden = false;
+    previewControls.hidden = zoomControlPosition === "hidden";
+    previewControls.classList.remove("position-top-left", "position-bottom-left", "position-bottom-right");
+    previewControls.classList.add(
+      zoomControlPosition === "bottomright"
+        ? "position-bottom-right"
+        : zoomControlPosition === "topleft"
+          ? "position-top-left"
+          : "position-bottom-left"
+    );
     markerLayer.hidden = true;
     messageEl.hidden = true;
-    headerEl.hidden = true;
-    previewMarker.innerHTML = this._getMarkerMarkup("arrow");
+    headerEl.hidden = !showHeader;
+    cardEl?.classList.toggle("header-hidden", !showHeader);
+    headerEl.classList.toggle("has-subtitle", Boolean(previewSubtitle));
+    titleEl.hidden = !showHeader;
+    titleEl.textContent = showHeader ? previewTitle : "";
+    subtitleEl.hidden = !previewSubtitle;
+    subtitleEl.textContent = previewSubtitle;
+    iconButton.hidden = !showHeader;
+    iconEl.icon = showHeader ? previewIcon : "";
+    previewMarker.innerHTML =
+      this._getMarkerMarkup("arrow") +
+      (this._config?.marker_tooltip_mode === "name" ? this._getMarkerTooltipMarkup("Preview") : "");
+    previewMarker.classList.toggle("has-tooltip", this._config?.marker_tooltip_mode === "name");
+    previewMarker.classList.toggle("tooltip-pinned", this._config?.marker_tooltip_mode === "name");
     previewMarker.style.setProperty("--marker-color", normalizeHex(this._config.color));
     previewMarker.style.setProperty("--heading", "72deg");
     previewMarker.style.setProperty(
@@ -1340,13 +1722,17 @@ class EntityHeadingMapCard extends HTMLElement {
     const cardEl = this.shadowRoot.getElementById("card");
     const mapShell = this.shadowRoot.querySelector(".map-shell");
     const previewOverlay = this.shadowRoot.getElementById("preview-overlay");
+    const previewControls = this.shadowRoot.getElementById("preview-controls");
     const previewMarker = this.shadowRoot.getElementById("preview-marker");
     const markerLayer = this.shadowRoot.getElementById("marker-layer");
 
     delete cardEl.dataset.previewMode;
     mapShell.classList.remove("preview-mode");
     previewOverlay.hidden = true;
+    previewControls.hidden = false;
+    previewControls.classList.remove("position-top-left", "position-bottom-left", "position-bottom-right");
     previewMarker.innerHTML = "";
+    previewMarker.classList.remove("has-tooltip", "tooltip-pinned");
     markerLayer.hidden = false;
   }
 
@@ -1363,7 +1749,43 @@ class EntityHeadingMapCard extends HTMLElement {
       return "hidden";
     }
 
-    return normalizeSelectValue(this._config?.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft");
+    return normalizeSelectValue(this._config?.zoom_control_position, ZOOM_CONTROL_POSITIONS, "bottomleft");
+  }
+
+  _getRecenterControlPosition() {
+    if (this._getZoomControlPosition() === "hidden") {
+      return "standalone";
+    }
+
+    switch (this._getZoomControlPosition()) {
+      case "bottomleft":
+        return "bottom-left";
+      case "bottomright":
+        return "bottom-right";
+      case "topleft":
+      default:
+        return "top-left";
+    }
+  }
+
+  _syncRecenterControl() {
+    const button = this.shadowRoot?.getElementById("recenter-button");
+    if (!button) {
+      return;
+    }
+
+    const shouldShow =
+      this._config?.show_recenter_button !== false &&
+      this._currentPoints.length > 0 &&
+      this._hasConfiguredSource() &&
+      !this._isPreviewMode();
+    const positionClass = `position-${this._getRecenterControlPosition()}`;
+
+    button.hidden = !shouldShow;
+    button.classList.remove("position-top-left", "position-bottom-left", "position-bottom-right", "position-standalone");
+    if (shouldShow) {
+      button.classList.add(positionClass);
+    }
   }
 
   _syncZoomControl() {
@@ -1396,13 +1818,15 @@ class EntityHeadingMapCard extends HTMLElement {
     const mapEl = this.shadowRoot.getElementById("map");
     this._map = window.L.map(mapEl, {
       zoomControl: false,
-      attributionControl: this._config.show_attribution === true,
+      attributionControl: isCartoTileUrl(this._getResolvedTileUrl()) || this._config.show_attribution === true,
       dragging: true,
       touchZoom: true,
       scrollWheelZoom: true,
       doubleClickZoom: true,
       boxZoom: true,
       keyboard: true,
+      zoomSnap: SPEED_ZOOM_SNAP,
+      zoomDelta: 1,
     });
 
     this._syncTileLayer();
@@ -1440,8 +1864,15 @@ class EntityHeadingMapCard extends HTMLElement {
       return;
     }
 
-    const resolvedUrl = this._getResolvedTileUrl();
-    const attribution = this._config.tile_attribution;
+    const baseUrl = this._getResolvedTileUrl();
+    this._map.attributionControl?.setPrefix(false);
+    const isCarto = isCartoTileUrl(baseUrl);
+    if (isCarto && !this._map.attributionControl) {
+      this._map.attributionControl = window.L.control.attribution({ prefix: false }).addTo(this._map);
+    }
+    const resolvedUrl = withCartoApiKey(baseUrl, this._config.carto_api_key);
+    const attribution = isCarto ? DEFAULT_TILE_ATTRIBUTION : this._config.tile_attribution;
+    const maxNativeZoom = isCarto ? 18 : 20;
     const subdomains = this._config.tile_subdomains;
     const maxZoom = 20;
     const currentSubdomains = this._tileLayer ? normalizeTileSubdomains(this._tileLayer.options.subdomains) : "";
@@ -1451,13 +1882,15 @@ class EntityHeadingMapCard extends HTMLElement {
       !this._tileLayer ||
       this._tileLayer.options.attribution !== attribution ||
       currentSubdomains !== expectedSubdomains ||
-      this._tileLayer.options.maxZoom !== maxZoom;
+      this._tileLayer.options.maxZoom !== maxZoom ||
+      this._tileLayer.options.maxNativeZoom !== maxNativeZoom;
 
     if (shouldRecreate) {
       this._tileLayer?.remove();
       this._tileLayer = window.L.tileLayer(resolvedUrl, {
         attribution,
         maxZoom,
+        maxNativeZoom,
         subdomains,
       }).addTo(this._map);
       return;
@@ -1534,6 +1967,7 @@ class EntityHeadingMapCard extends HTMLElement {
       latitudeState,
       longitudeState,
       headingState,
+      gear_entity: entry.gear_entity,
     };
   }
 
@@ -1564,7 +1998,52 @@ class EntityHeadingMapCard extends HTMLElement {
     ];
   }
 
-  _getMarkerMarkup(kind) {
+  _getMarkerImageUrl() {
+    if (this._config?.marker_type !== "image") return "";
+    const mode = this._config.marker_image_mode;
+    const night = mode === "night" || (mode === "auto" && this._hass?.states?.["sun.sun"]?.state === "below_horizon");
+    const url = (night && this._config.marker_image_night) || this._config.marker_image || "";
+    return /^(https?:\/\/|\/(?!\/))/.test(url) ? url : "";
+  }
+
+  _shouldShowHeadlights(point) {
+    if (!this._config.show_headlights || this._hass?.states?.["sun.sun"]?.state !== "below_horizon") return false;
+    const gearEntity = point?.gear_entity || this._config.gear_entity;
+    const gear = String(this._getEntityState(gearEntity)?.state || "").trim().toLowerCase();
+    if (["p", "park", "parked"].includes(gear)) return false;
+    if (["d", "drive", "r", "reverse", "n", "neutral"].includes(gear)) return true;
+    const speed = this._getConfiguredSpeedData() || this._getSpeedData(point);
+    return Number.isFinite(speed?.speed) && speed.speed > 0;
+  }
+
+  _getMarkerMarkup(kind, headlights = false) {
+    const url = this._getMarkerImageUrl();
+    if (url) {
+      const escaped = url.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+      const beams = headlights ? `<svg class="headlight-beams" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <radialGradient id="headlight-wash" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(50 -29) scale(36 83)">
+            <stop offset="0" stop-color="#f3f8ff" stop-opacity="0.30" />
+            <stop offset="0.38" stop-color="#f3f8ff" stop-opacity="0.23" />
+            <stop offset="0.72" stop-color="#f3f8ff" stop-opacity="0.085" />
+            <stop offset="1" stop-color="#f3f8ff" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="taillight-glow">
+            <stop offset="0" stop-color="#ff3040" stop-opacity="0.375" />
+            <stop offset="1" stop-color="#ff3040" stop-opacity="0" />
+          </radialGradient>
+          <radialGradient id="headlight-near">
+            <stop offset="0" stop-color="#ffffff" stop-opacity="0.45" />
+            <stop offset="1" stop-color="#ffffff" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        <path d="M35,9 C31,-4 15,-35 14,-72 C13,-123 87,-123 86,-72 C85,-35 69,-4 65,9 Z" fill="url(#headlight-wash)" />
+        <ellipse cx="41" cy="-2" rx="13" ry="22" fill="url(#headlight-near)" />
+        <ellipse cx="59" cy="-2" rx="13" ry="22" fill="url(#headlight-near)" />
+        <ellipse cx="50" cy="97" rx="23" ry="10" fill="url(#taillight-glow)" />
+      </svg>` : "";
+      return `<div class="car-marker-wrap">${beams}<img class="car-marker-image" src="${escaped}" alt="" draggable="false" /></div>`;
+    }
     if (kind === "dot") {
       return `
         <svg viewBox="-12 -12 24 24" role="presentation">
@@ -1580,26 +2059,92 @@ class EntityHeadingMapCard extends HTMLElement {
     `;
   }
 
+  _getMarkerTooltipMarkup(name) {
+    return `<div class="marker-tooltip" aria-hidden="true">${name}</div>`;
+  }
+
+  _hidePinnedMarkerTooltips(exceptKey = null) {
+    for (const [key, marker] of this._markers.entries()) {
+      if (key !== exceptKey) {
+        marker.classList.remove("tooltip-pinned");
+      }
+    }
+  }
+
+  _syncMarkerTooltip(marker, point) {
+    const tooltipMode = normalizeSelectValue(this._config?.marker_tooltip_mode, MARKER_TOOLTIP_MODES, "off");
+    const enableTooltip = tooltipMode === "name";
+    let tooltip = marker.querySelector(".marker-tooltip");
+
+    if (!tooltip) {
+      marker.insertAdjacentHTML("beforeend", this._getMarkerTooltipMarkup(point.name));
+      tooltip = marker.querySelector(".marker-tooltip");
+    }
+
+    tooltip.textContent = point.name;
+    tooltip.hidden = !enableTooltip;
+    marker.classList.toggle("has-tooltip", enableTooltip);
+    marker.tabIndex = enableTooltip ? 0 : -1;
+
+    if (!enableTooltip) {
+      marker.classList.remove("tooltip-pinned");
+    }
+
+    if (marker._tooltipBound) {
+      return enableTooltip;
+    }
+
+    const showTooltip = () => marker.classList.add("tooltip-pinned");
+    const hideTooltip = () => marker.classList.remove("tooltip-pinned");
+    const toggleTooltip = (event) => {
+      event.stopPropagation();
+      if (!marker.classList.contains("has-tooltip")) {
+        return;
+      }
+
+      const shouldPin = !marker.classList.contains("tooltip-pinned");
+      this._hidePinnedMarkerTooltips(shouldPin ? point.key : null);
+      marker.classList.toggle("tooltip-pinned", shouldPin);
+    };
+
+    marker.addEventListener("focus", showTooltip);
+    marker.addEventListener("blur", hideTooltip);
+    marker.addEventListener("click", toggleTooltip);
+    marker.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggleTooltip(event);
+      }
+    });
+    marker._tooltipBound = true;
+    return enableTooltip;
+  }
+
   _syncMarker(point) {
     let marker = this._markers.get(point.key);
     const markerKind = point.heading === null ? "dot" : "arrow";
+    const markerImage = this._getMarkerImageUrl();
+    const headlights = this._shouldShowHeadlights(point);
+    const markerAppearance = markerImage + String(headlights);
 
     if (!marker) {
       marker = document.createElement("div");
       marker.className = "dom-marker";
       marker.dataset.markerKind = markerKind;
-      marker.innerHTML = this._getMarkerMarkup(markerKind);
+      marker.innerHTML = this._getMarkerMarkup(markerKind, headlights);
       this.shadowRoot.getElementById("marker-layer").appendChild(marker);
       this._markers.set(point.key, marker);
-    } else if (marker.dataset.markerKind !== markerKind) {
+    } else if (marker.dataset.markerKind !== markerKind || marker.dataset.markerImage !== markerAppearance) {
       marker.dataset.markerKind = markerKind;
-      marker.innerHTML = this._getMarkerMarkup(markerKind);
+      marker.innerHTML = this._getMarkerMarkup(markerKind, headlights);
     }
 
+    marker.dataset.markerImage = markerAppearance;
     marker.style.setProperty("--marker-color", point.color);
-    marker.style.setProperty("--marker-size", `${this._config.marker_size ?? DEFAULT_MARKER_SIZE}px`);
+    marker.style.setProperty("--marker-size", `${markerImage ? this._config.marker_image_size : this._config.marker_size ?? DEFAULT_MARKER_SIZE}px`);
     marker.style.setProperty("--heading", `${point.heading ?? 0}deg`);
-    marker.title = point.heading !== null ? `${point.name} (${Math.round(point.heading)}°)` : point.name;
+    const tooltipEnabled = this._syncMarkerTooltip(marker, point);
+    marker.title = tooltipEnabled ? "" : point.heading !== null ? `${point.name} (${Math.round(point.heading)}°)` : point.name;
     this._markerPoints.set(point.key, point);
     this._positionMarker(point.key);
   }
@@ -1784,6 +2329,11 @@ class EntityHeadingMapCard extends HTMLElement {
     return Number.isFinite(speed) && Math.abs(speed) > 0;
   }
 
+  _isParked(point) {
+    const status = firstNonEmptyString(point?.entityState?.state)?.toLowerCase();
+    return Boolean(status && PARKED_STATES.has(status));
+  }
+
   _formatConfiguredSpeed() {
     const speedData = this._getConfiguredSpeedData();
     if (!speedData) {
@@ -1803,11 +2353,89 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   _getPreviewSpeedData() {
+    if (Number.isFinite(this._previewSpeedValue)) {
+      return {
+        value: String(Math.round(this._previewSpeedValue)),
+        unit: "MPH",
+        speed: this._previewSpeedValue,
+      };
+    }
+
     return {
       value: "45",
-      unit: "",
+      unit: "MPH",
       speed: 45,
     };
+  }
+
+  _getGaugeMaxSpeed(unit) {
+    const normalizedUnit = formatSpeedUnitLabel(unit);
+
+    if (normalizedUnit === "KM/H") {
+      return 200;
+    }
+
+    if (normalizedUnit === "KTS") {
+      return 60;
+    }
+
+    if (normalizedUnit === "M/S") {
+      return 55;
+    }
+
+    return 120;
+  }
+
+  _getGaugeProgress(speed, unit) {
+    const maxSpeed = this._getGaugeMaxSpeed(unit);
+    if (!Number.isFinite(speed) || maxSpeed <= 0) {
+      return 0;
+    }
+
+    return Math.max(0, Math.min(100, (Math.abs(speed) / maxSpeed) * 100));
+  }
+
+  _getGaugeWarning(speed, unit) {
+    const maxSpeed = this._getGaugeMaxSpeed(unit);
+    if (!Number.isFinite(speed) || maxSpeed <= 0) {
+      return false;
+    }
+
+    return Math.abs(speed) / maxSpeed >= GAUGE_WARNING_RATIO;
+  }
+
+  _getSpeedometerValueSize(value, style) {
+    const digits = String(value || "").replace(/[^\d]/g, "").length;
+
+    if (style === "gauge") {
+      if (digits >= 3) {
+        return "1.72rem";
+      }
+
+      return "1.96rem";
+    }
+
+    if (digits >= 3) {
+      return "1.34rem";
+    }
+
+    return "1.58rem";
+  }
+
+  _updateGaugeSegments(speedometerEl, speedData) {
+    const segments = speedometerEl.querySelectorAll(".speedometer-segment");
+    if (!segments.length) {
+      return;
+    }
+
+    const progress = this._getGaugeProgress(speedData.speed, speedData.unit);
+    const activeCount = Math.max(0, Math.min(GAUGE_SEGMENT_COUNT, Math.round((progress / 100) * GAUGE_SEGMENT_COUNT)));
+
+    segments.forEach((segment, index) => {
+      segment.classList.toggle("active", index < activeCount);
+    });
+
+    speedometerEl.classList.toggle("warning", this._getGaugeWarning(speedData.speed, speedData.unit));
   }
 
   _getEffectiveZoom(points) {
@@ -1822,8 +2450,9 @@ class EntityHeadingMapCard extends HTMLElement {
       return baseZoom;
     }
 
-    const zoomOffset = Math.max(0, Math.floor(Math.abs(speed) / SPEED_ZOOM_STEP_MPH));
-    return Math.max(1, Math.min(20, baseZoom - zoomOffset));
+    const zoomOffset = Math.max(0, Math.abs(speed) / SPEED_ZOOM_STEP_MPH);
+    const targetZoom = Math.max(1, Math.min(20, baseZoom - zoomOffset));
+    return Math.round(targetZoom / SPEED_ZOOM_SNAP) * SPEED_ZOOM_SNAP;
   }
 
   _updateSpeedometer(points) {
@@ -1831,6 +2460,7 @@ class EntityHeadingMapCard extends HTMLElement {
     const valueEl = this.shadowRoot.getElementById("speedometer-value");
     const unitEl = this.shadowRoot.getElementById("speedometer-unit");
     const showEditorPreview = this._isEditorPreviewCard() && this._config?.show_speedometer === true && points.length === 1;
+    const speedometerStyle = normalizeSelectValue(this._config?.speedometer_style, SPEEDOMETER_STYLES, "classic");
 
     if (!speedometerEl || !valueEl || !unitEl) {
       return;
@@ -1838,22 +2468,119 @@ class EntityHeadingMapCard extends HTMLElement {
 
     if ((!this._config?.show_speedometer && !showEditorPreview) || points.length !== 1) {
       speedometerEl.hidden = true;
+      speedometerEl.classList.remove("preview-interactive");
+      speedometerEl.classList.remove("warning");
       valueEl.textContent = "";
       unitEl.textContent = "";
       return;
     }
 
     const speedData = showEditorPreview ? this._getPreviewSpeedData() : this._formatConfiguredSpeed();
-    if (!showEditorPreview && (!this._config?.speed_entity || !speedData || !this._isConfiguredMoving())) {
+    const activePoint = points[0] || this._activePoint;
+    if (!showEditorPreview && (!this._config?.speed_entity || !speedData || this._isParked(activePoint))) {
       speedometerEl.hidden = true;
+      speedometerEl.classList.remove("preview-interactive");
+      speedometerEl.classList.remove("warning");
       valueEl.textContent = "";
       unitEl.textContent = "";
       return;
     }
 
     speedometerEl.hidden = false;
+    speedometerEl.classList.toggle("preview-interactive", showEditorPreview);
+    speedometerEl.classList.toggle("classic", speedometerStyle === "classic");
+    speedometerEl.classList.toggle("gauge", speedometerStyle === "gauge");
+    speedometerEl.style.setProperty("--speedometer-value-size", this._getSpeedometerValueSize(speedData.value, speedometerStyle));
     valueEl.textContent = speedData.value;
-    unitEl.textContent = "";
+    unitEl.textContent = speedometerStyle === "gauge" ? formatSpeedUnitLabel(speedData.unit) : "";
+    if (speedometerStyle === "gauge") {
+      this._updateGaugeSegments(speedometerEl, speedData);
+    } else {
+      speedometerEl.classList.remove("warning");
+    }
+  }
+
+  _handleSpeedometerClick(event) {
+    if (!this._isEditorPreviewCard() || this._config?.show_speedometer !== true) {
+      return;
+    }
+
+    event.stopPropagation();
+    this._startPreviewSpeedAnimation();
+  }
+
+  _startPreviewSpeedAnimation() {
+    if (this._previewSpeedAnimationFrame) {
+      cancelAnimationFrame(this._previewSpeedAnimationFrame);
+    }
+
+    const durationMs = 1600;
+    const startSpeed = 0;
+    const targetSpeed = 60;
+    let startTimestamp = null;
+
+    const step = (timestamp) => {
+      if (startTimestamp === null) {
+        startTimestamp = timestamp;
+      }
+
+      const progress = Math.min(1, (timestamp - startTimestamp) / durationMs);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      this._previewSpeedValue = startSpeed + (targetSpeed - startSpeed) * eased;
+      this._updateSpeedometer(this._currentPoints);
+
+      if (progress < 1) {
+        this._previewSpeedAnimationFrame = requestAnimationFrame(step);
+      } else {
+        this._previewSpeedAnimationFrame = null;
+      }
+    };
+
+    this._previewSpeedValue = startSpeed;
+    this._updateSpeedometer(this._currentPoints);
+    this._previewSpeedAnimationFrame = requestAnimationFrame(step);
+  }
+
+  _handleRecenterClick(event) {
+    event.stopPropagation();
+
+    if (this._isPreviewMode()) {
+      return;
+    }
+
+    this._recenterMap();
+  }
+
+  _recenterMap() {
+    if (!this._map || !this._map._loaded || !this._currentPoints.length) {
+      return;
+    }
+
+    const points = this._currentPoints;
+
+    if (points.length === 1 || this._config.fit_bounds === false) {
+      const [point] = points;
+      const effectiveZoom = this._getEffectiveZoom(points);
+      const shouldEnforceZoom =
+        this._config?.auto_zoom_by_speed === true &&
+        Boolean(this._config?.speed_entity) &&
+        this._isConfiguredMoving();
+      const zoomToApply = shouldEnforceZoom ? effectiveZoom : effectiveZoom;
+      this._map.setView([point.latitude, point.longitude], zoomToApply, { animate: true });
+      this._viewInitialized = true;
+      this._lastViewSignature = shouldEnforceZoom
+        ? `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${effectiveZoom}`
+        : `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`;
+      return;
+    }
+
+    const bounds = window.L.latLngBounds(points.map((point) => [point.latitude, point.longitude]));
+    this._map.fitBounds(bounds, { padding: [24, 24], maxZoom: this._config.zoom, animate: true });
+    this._viewInitialized = true;
+    this._lastViewSignature = `multi:${points
+      .map((point) => `${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`)
+      .sort()
+      .join("|")}`;
   }
 
   _formatCustomEntitySubtitle() {
@@ -1965,7 +2692,7 @@ class EntityHeadingMapCard extends HTMLElement {
         Boolean(this._config?.speed_entity) &&
         this._isConfiguredMoving();
       const signature = shouldEnforceZoom
-        ? `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${effectiveZoom}`
+        ? `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${effectiveZoom.toFixed(1)}`
         : `single:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`;
       if (!this._viewInitialized || !this._map._loaded) {
         this._map.setView([point.latitude, point.longitude], effectiveZoom);
@@ -1991,9 +2718,13 @@ class EntityHeadingMapCard extends HTMLElement {
         Math.abs(currentCenter.lat - point.latitude) > 0.000001 ||
         Math.abs(currentCenter.lng - point.longitude) > 0.000001;
 
-      if (this._lastViewSignature !== signature || isOffCenter || (shouldEnforceZoom && currentZoom !== effectiveZoom)) {
+      if (
+        this._lastViewSignature !== signature ||
+        isOffCenter ||
+        (shouldEnforceZoom && Math.abs(currentZoom - effectiveZoom) > SPEED_ZOOM_EPSILON)
+      ) {
         const zoomToApply = shouldEnforceZoom ? effectiveZoom : currentZoom;
-        this._map.setView([point.latitude, point.longitude], zoomToApply, { animate: false });
+        this._map.setView([point.latitude, point.longitude], zoomToApply, { animate: shouldEnforceZoom });
         this._lastViewSignature = signature;
       }
 
@@ -2032,6 +2763,9 @@ class EntityHeadingMapCard extends HTMLElement {
 
       return (
         node.classList.contains("map-shell") ||
+        node.classList.contains("marker-layer") ||
+        node.classList.contains("dom-marker") ||
+        node.classList.contains("marker-tooltip") ||
         node.classList.contains("leaflet-container") ||
         node.classList.contains("leaflet-control") ||
         node.classList.contains("leaflet-pane") ||
@@ -2136,12 +2870,16 @@ class EntityHeadingMapCard extends HTMLElement {
     }
 
     this._ensureMap();
+    this._syncThemeState();
     this._syncTileLayer();
     this._syncZoomControl();
+    this._syncRecenterControl();
 
     const points = this._getEntries()
       .map((entry) => this._resolveCoordinateSource(entry))
       .filter(Boolean);
+    this._currentPoints = points;
+    this._syncRecenterControl();
 
     const activeKeys = new Set(points.map((point) => point.key));
 
@@ -2192,12 +2930,15 @@ class EntityHeadingMapCard extends HTMLElement {
       height: "286px",
       zoom: DEFAULT_ZOOM,
       show_zoom_controls: true,
+      show_recenter_button: true,
       show_speedometer: false,
       auto_zoom_by_speed: false,
-      zoom_control_position: "topleft",
+      zoom_control_position: "bottomleft",
       marker_size: DEFAULT_MARKER_SIZE,
       color: DEFAULT_MARKER_COLOR,
       style_preset: "mushroom",
+      speedometer_style: "classic",
+      marker_tooltip_mode: "off",
       tile_style: "default",
       show_map_labels: true,
       subtitle_mode: "none",
@@ -2368,18 +3109,24 @@ class EntityHeadingMapCardEditor extends HTMLElement {
         }
       </style>
       <div class="form">
-        <ha-select id="device" label="Device"></ha-select>
-        <div id="device_helper" class="helper"></div>
-        <div class="toggle-card editor-toggle">
-          <div class="toggle-copy">
-            <div class="toggle-label">Show header</div>
-            <div class="toggle-description">Display the icon, title, and subtitle above the map.</div>
-          </div>
-          <ha-switch id="show_header"></ha-switch>
-        </div>
-
-        <ha-expansion-panel id="content_panel" header="Content" outlined expanded>
+        <ha-expansion-panel id="source_panel" header="Source" outlined expanded>
           <div class="panel-content">
+            <ha-select id="device" label="Device"></ha-select>
+            <div id="device_helper" class="helper"></div>
+            <ha-selector id="speed_entity"></ha-selector>
+            <div id="speed_entity_helper" class="helper">Used by speed subtitle, speedometer, and auto zoom.</div>
+          </div>
+        </ha-expansion-panel>
+
+        <ha-expansion-panel id="header_panel" header="Header" outlined expanded>
+          <div class="panel-content">
+            <div class="toggle-card editor-toggle">
+              <div class="toggle-copy">
+                <div class="toggle-label">Show header</div>
+                <div class="toggle-description">Display the icon, title, and subtitle above the map.</div>
+              </div>
+              <ha-switch id="show_header"></ha-switch>
+            </div>
             <div class="row">
               <ha-icon-picker id="icon" label="Icon"></ha-icon-picker>
               <ha-textfield id="title" label="Title"></ha-textfield>
@@ -2401,18 +3148,27 @@ class EntityHeadingMapCardEditor extends HTMLElement {
           </div>
         </ha-expansion-panel>
 
-        <ha-expansion-panel id="interactions_panel" header="Interactions" outlined>
+        <ha-expansion-panel id="display_panel" header="On-Map Display" outlined>
           <div class="panel-content">
             <div class="row">
-              <hui-action-editor id="tap_action"></hui-action-editor>
-              <hui-action-editor id="icon_tap_action"></hui-action-editor>
+              <div class="color-row">
+                <input id="color_picker" class="color-picker" type="color" />
+                <ha-textfield id="color" label="Marker Color"></ha-textfield>
+              </div>
+              <ha-selector id="marker_size"></ha-selector>
             </div>
-          </div>
-        </ha-expansion-panel>
-
-        <ha-expansion-panel id="features_panel" header="Features" outlined>
-          <div class="panel-content">
-            <ha-selector id="speed_entity"></ha-selector>
+            <ha-select id="marker_type" label="Marker type"></ha-select>
+            <div id="image_controls">
+              <ha-textfield id="marker_image" label="Day image URL" placeholder="/local/car-map-markers/onyx-model-s-day.png"></ha-textfield>
+              <ha-textfield id="marker_image_night" label="Night image URL"></ha-textfield>
+              <ha-select id="marker_image_mode" label="Image mode"></ha-select>
+              <ha-selector id="gear_entity"></ha-selector>
+              <div class="helper">Optional gear sensor: P/Park disables headlights; D/Drive, R/Reverse or N/Neutral enables them after sunset. Missing or unavailable gear uses speed above zero.</div>
+              <div class="toggle-card"><div class="toggle-copy"><div class="toggle-label">Show headlights at night</div><div class="toggle-description">Headlight beams and faint rear glow when not parked after sunset; uses speed if gear is unavailable.</div></div><ha-switch id="show_headlights"></ha-switch></div>
+              <ha-selector id="marker_image_size"></ha-selector>
+              <div class="helper">Fixed screen size, including transparent margins. Automatic mode follows sun.sun; images should point nose-up.</div>
+            </div>
+            <ha-select id="marker_tooltip_mode" label="Marker Tooltips"></ha-select>
             <div class="toggle-card">
               <div class="toggle-copy">
                 <div class="toggle-label">Show speedometer</div>
@@ -2420,33 +3176,38 @@ class EntityHeadingMapCardEditor extends HTMLElement {
               </div>
               <ha-switch id="show_speedometer"></ha-switch>
             </div>
+            <ha-select id="speedometer_style" label="Speedometer Style"></ha-select>
+          </div>
+        </ha-expansion-panel>
+
+        <ha-expansion-panel id="controls_panel" header="Map Controls &amp; Behavior" outlined>
+          <div class="panel-content">
+            <div class="row">
+              <ha-selector id="zoom"></ha-selector>
+              <ha-select id="zoom_control_position" label="Zoom In/Out buttons"></ha-select>
+            </div>
+            <div class="toggle-card">
+              <div class="toggle-copy">
+                <div class="toggle-label">Show recenter button</div>
+                <div class="toggle-description">Returns the map to the tracked point or fitted bounds.</div>
+              </div>
+              <ha-switch id="show_recenter_button"></ha-switch>
+            </div>
             <div class="toggle-card">
               <div class="toggle-copy">
                 <div class="toggle-label">Auto zoom by speed</div>
-                <div class="toggle-description">Adjust zoom automatically in 20 mph bands using the speed entity.</div>
+                <div class="toggle-description">Adjust zoom smoothly using the speed entity.</div>
               </div>
               <ha-switch id="auto_zoom_by_speed"></ha-switch>
-            </div>
-            <div class="color-row">
-              <input id="color_picker" class="color-picker" type="color" />
-              <ha-textfield id="color" label="Marker Color"></ha-textfield>
             </div>
           </div>
         </ha-expansion-panel>
 
-        <ha-expansion-panel id="advanced_map_panel" header="Advanced Map Settings" outlined>
+        <ha-expansion-panel id="layout_panel" header="Map Style &amp; Layout" outlined>
           <div class="panel-content">
             <div class="row">
-              <ha-selector id="height"></ha-selector>
-              <ha-selector id="zoom"></ha-selector>
-            </div>
-            <div class="row">
-              <ha-selector id="marker_size"></ha-selector>
-              <ha-select id="zoom_control_position" label="Zoom In/Out buttons"></ha-select>
-            </div>
-            <div class="row">
-              <ha-select id="tile_style" label="Map Style"></ha-select>
               <ha-select id="style_preset" label="Card Style"></ha-select>
+              <ha-select id="tile_style" label="Map Style"></ha-select>
             </div>
             <div id="map_labels_card" class="toggle-card">
               <div class="toggle-copy">
@@ -2455,11 +3216,28 @@ class EntityHeadingMapCardEditor extends HTMLElement {
               </div>
               <ha-switch id="show_map_labels"></ha-switch>
             </div>
+            <ha-textfield id="carto_api_key" label="CARTO API key" type="password" autocomplete="off"></ha-textfield>
+            <div id="carto_key_helper" class="helper">
+              Built-in maps need a free CARTO key. <a href="https://www.carto.com/basemaps/apikey/" target="_blank" rel="noopener noreferrer">Get your key</a>, then paste it here. Stored in this dashboard configuration; accessible to its users. Required map attribution stays visible.
+            </div>
             <ha-textfield
               id="tile_url"
               label="Custom Tile URL"
               placeholder="e.g. https://tiles.example.com/{z}/{x}/{y}.png"
             ></ha-textfield>
+            <div id="tile_url_helper" class="helper">Shown only for Custom URL map style.</div>
+            <ha-selector id="attribution_opacity"></ha-selector>
+            <div class="helper">Controls the opacity of both the attribution background and text. Keep provider credits readable as required by their terms.</div>
+            <ha-selector id="height"></ha-selector>
+          </div>
+        </ha-expansion-panel>
+
+        <ha-expansion-panel id="interactions_panel" header="Interactions" outlined>
+          <div class="panel-content">
+            <div class="row">
+              <hui-action-editor id="tap_action"></hui-action-editor>
+              <hui-action-editor id="icon_tap_action"></hui-action-editor>
+            </div>
           </div>
         </ha-expansion-panel>
       </div>
@@ -2469,6 +3247,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._refs = {
       device: this.shadowRoot.getElementById("device"),
       deviceHelper: this.shadowRoot.getElementById("device_helper"),
+      speedEntity: this.shadowRoot.getElementById("speed_entity"),
+      speedEntityHelper: this.shadowRoot.getElementById("speed_entity_helper"),
       showHeader: this.shadowRoot.getElementById("show_header"),
       title: this.shadowRoot.getElementById("title"),
       subtitleMode: this.shadowRoot.getElementById("subtitle_mode"),
@@ -2480,26 +3260,60 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       icon: this.shadowRoot.getElementById("icon"),
       tapAction: this.shadowRoot.getElementById("tap_action"),
       iconTapAction: this.shadowRoot.getElementById("icon_tap_action"),
+      gearEntity: this.shadowRoot.getElementById("gear_entity"),
+      showHeadlights: this.shadowRoot.getElementById("show_headlights"),
+      markerType: this.shadowRoot.getElementById("marker_type"),
+      markerImage: this.shadowRoot.getElementById("marker_image"),
+      markerImageNight: this.shadowRoot.getElementById("marker_image_night"),
+      markerImageMode: this.shadowRoot.getElementById("marker_image_mode"),
+      markerImageSize: this.shadowRoot.getElementById("marker_image_size"),
+      imageControls: this.shadowRoot.getElementById("image_controls"),
+      markerSize: this.shadowRoot.getElementById("marker_size"),
+      markerTooltipMode: this.shadowRoot.getElementById("marker_tooltip_mode"),
+      showSpeedometer: this.shadowRoot.getElementById("show_speedometer"),
+      speedometerStyle: this.shadowRoot.getElementById("speedometer_style"),
+      color: this.shadowRoot.getElementById("color"),
+      colorPicker: this.shadowRoot.getElementById("color_picker"),
       height: this.shadowRoot.getElementById("height"),
       zoom: this.shadowRoot.getElementById("zoom"),
-      markerSize: this.shadowRoot.getElementById("marker_size"),
-      speedEntity: this.shadowRoot.getElementById("speed_entity"),
       zoomControlPosition: this.shadowRoot.getElementById("zoom_control_position"),
+      showRecenterButton: this.shadowRoot.getElementById("show_recenter_button"),
+      autoZoomBySpeed: this.shadowRoot.getElementById("auto_zoom_by_speed"),
+      stylePreset: this.shadowRoot.getElementById("style_preset"),
       tileStyle: this.shadowRoot.getElementById("tile_style"),
       mapLabelsCard: this.shadowRoot.getElementById("map_labels_card"),
       showMapLabels: this.shadowRoot.getElementById("show_map_labels"),
+      attributionOpacity: this.shadowRoot.getElementById("attribution_opacity"),
+      cartoApiKey: this.shadowRoot.getElementById("carto_api_key"),
+      cartoKeyHelper: this.shadowRoot.getElementById("carto_key_helper"),
       tileUrl: this.shadowRoot.getElementById("tile_url"),
-      stylePreset: this.shadowRoot.getElementById("style_preset"),
-      showSpeedometer: this.shadowRoot.getElementById("show_speedometer"),
-      autoZoomBySpeed: this.shadowRoot.getElementById("auto_zoom_by_speed"),
-      color: this.shadowRoot.getElementById("color"),
-      colorPicker: this.shadowRoot.getElementById("color_picker"),
+      tileUrlHelper: this.shadowRoot.getElementById("tile_url_helper"),
     };
 
     this._refs.tapAction.label = "Tap behavior";
     this._refs.tapAction.defaultAction = "more-info";
     this._refs.iconTapAction.label = "Icon tap behavior";
     this._refs.iconTapAction.defaultAction = "none";
+    this._refs.gearEntity.label = "Gear entity (optional)";
+    this._refs.gearEntity.selector = { entity: {} };
+    this._refs.gearEntity.addEventListener("value-changed", event => this._updateConfigValue("gear_entity", firstNonEmptyString(event.detail.value)));
+    this._refs.showHeadlights.addEventListener("change", event => this._updateConfigValue("show_headlights", event.target.checked));
+    this._refs.markerType.options = [{ value: "arrow", label: "Directional arrow" }, { value: "image", label: "Custom image" }];
+    this._refs.markerImageMode.options = [{ value: "auto", label: "Automatic (sun)" }, { value: "day", label: "Day" }, { value: "night", label: "Night" }];
+    this._refs.markerImageSize.label = "Custom image size";
+    this._refs.markerImageSize.selector = { number: { min: 24, max: 160, step: 1, mode: "slider", unit_of_measurement: "px" } };
+    for (const [control, field] of [[this._refs.markerType, "marker_type"], [this._refs.markerImageMode, "marker_image_mode"]]) {
+      control.addEventListener("selected", event => this._updateConfigValue(field, event.detail.value));
+    }
+    for (const [control, field] of [[this._refs.markerImage, "marker_image"], [this._refs.markerImageNight, "marker_image_night"]]) {
+      control.addEventListener("change", event => this._updateConfigValue(field, event.target.value.trim()));
+    }
+    this._refs.markerImageSize.addEventListener("value-changed", event => this._updateConfigValue("marker_image_size", asNumber(event.detail.value)));
+    this._refs.attributionOpacity.label = "Attribution opacity";
+    this._refs.attributionOpacity.selector = { number: { min: 0, max: 100, step: 1, mode: "slider", unit_of_measurement: "%" } };
+    this._refs.attributionOpacity.addEventListener("value-changed", (event) =>
+      this._updateConfigValue("attribution_opacity", asNumber(event.detail.value))
+    );
     this._refs.height.label = "Height";
     this._refs.height.selector = { number: { min: 160, max: 960, step: 1, mode: "box" } };
     this._refs.zoom.label = "Zoom";
@@ -2533,6 +3347,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       this._refs.subtitleSuffix,
       this._refs.subtitleFallback,
       this._refs.color,
+      this._refs.cartoApiKey,
       this._refs.tileUrl,
     ]) {
       field.addEventListener("change", (event) => this._handleFieldChange(event));
@@ -2549,6 +3364,18 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     );
     this._refs.speedEntity.addEventListener("value-changed", (event) =>
       this._updateConfigValue("speed_entity", firstNonEmptyString(event.detail.value))
+    );
+    this._refs.speedometerStyle.addEventListener("selected", (event) =>
+      this._updateConfigValue(
+        "speedometer_style",
+        normalizeSelectValue(event.detail.value, SPEEDOMETER_STYLES, "classic")
+      )
+    );
+    this._refs.markerTooltipMode.addEventListener("selected", (event) =>
+      this._updateConfigValue(
+        "marker_tooltip_mode",
+        normalizeSelectValue(event.detail.value, MARKER_TOOLTIP_MODES, "off")
+      )
     );
 
     this._refs.height.addEventListener("value-changed", (event) => {
@@ -2574,9 +3401,9 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._refs.zoomControlPosition.addEventListener("selected", (event) =>
       this._commitConfig({
         ...this._config,
-        zoom_control_position: normalizeSelectValue(event.detail.value, ZOOM_CONTROL_POSITIONS, "topleft"),
+        zoom_control_position: normalizeSelectValue(event.detail.value, ZOOM_CONTROL_POSITIONS, "bottomleft"),
         show_zoom_controls:
-          normalizeSelectValue(event.detail.value, ZOOM_CONTROL_POSITIONS, "topleft") !== "hidden",
+          normalizeSelectValue(event.detail.value, ZOOM_CONTROL_POSITIONS, "bottomleft") !== "hidden",
       })
     );
     this._refs.tileStyle.addEventListener("selected", (event) => {
@@ -2589,6 +3416,9 @@ class EntityHeadingMapCardEditor extends HTMLElement {
 
       this._commitConfig(config);
     });
+    this._refs.showRecenterButton.addEventListener("change", (event) =>
+      this._updateConfigValue("show_recenter_button", event.target.checked)
+    );
     this._refs.showMapLabels.addEventListener("change", (event) =>
       this._updateConfigValue("show_map_labels", event.target.checked)
     );
@@ -2629,6 +3459,14 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       { value: "default", label: "Default" },
       { value: "mushroom", label: "Mushroom-inspired" },
     ];
+    this._refs.speedometerStyle.options = [
+      { value: "classic", label: "Classic" },
+      { value: "gauge", label: "Gauge" },
+    ];
+    this._refs.markerTooltipMode.options = [
+      { value: "off", label: "Off" },
+      { value: "name", label: "Name Only" },
+    ];
 
     this._applyDeviceOptions();
     this._applyConfigToForm();
@@ -2646,6 +3484,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._refs.markerSize.hass = this._hass;
     this._refs.subtitleEntity.hass = this._hass;
     this._refs.speedEntity.hass = this._hass;
+    this._refs.gearEntity.hass = this._hass;
+    this._refs.markerImageSize.hass = this._hass;
     this._updateActionEditorContext();
   }
 
@@ -2836,15 +3676,36 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     this._setControlValue(this._refs.markerSize, this._config.marker_size ?? DEFAULT_MARKER_SIZE);
     this._setControlValue(this._refs.speedEntity, this._config.speed_entity || "");
     this._setControlValue(
+      this._refs.speedometerStyle,
+      normalizeSelectValue(this._config.speedometer_style, SPEEDOMETER_STYLES, "classic")
+    );
+    this._setControlValue(
+      this._refs.markerTooltipMode,
+      normalizeSelectValue(this._config.marker_tooltip_mode, MARKER_TOOLTIP_MODES, "off")
+    );
+    this._setControlValue(
       this._refs.zoomControlPosition,
       this._config.show_zoom_controls === false
         ? "hidden"
-        : normalizeSelectValue(this._config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "topleft")
+        : normalizeSelectValue(this._config.zoom_control_position, ZOOM_CONTROL_POSITIONS, "bottomleft")
     );
+    if (!this._isControlFocused(this._refs.showRecenterButton)) {
+      this._refs.showRecenterButton.checked = this._config.show_recenter_button !== false;
+    }
     this._setControlValue(this._refs.tileStyle, this._getTileStyleSelection());
     if (!this._isControlFocused(this._refs.showMapLabels)) {
       this._refs.showMapLabels.checked = this._config.show_map_labels !== false;
     }
+    this._setControlValue(this._refs.gearEntity, this._config.gear_entity || "");
+    if (!this._isControlFocused(this._refs.showHeadlights)) this._refs.showHeadlights.checked = this._config.show_headlights !== false;
+    this._setControlValue(this._refs.markerType, this._config.marker_type || "arrow");
+    this._setControlValue(this._refs.markerImageMode, this._config.marker_image_mode || "auto");
+    this._setControlValue(this._refs.markerImage, this._config.marker_image || "");
+    this._setControlValue(this._refs.markerImageNight, this._config.marker_image_night || "");
+    this._setControlValue(this._refs.markerImageSize, this._config.marker_image_size ?? 80, true);
+    this._refs.imageControls.hidden = this._config.marker_type !== "image";
+    this._setControlValue(this._refs.attributionOpacity, this._config.attribution_opacity ?? 100, true);
+    this._setControlValue(this._refs.cartoApiKey, this._config.carto_api_key || "");
     this._setControlValue(this._refs.tileUrl, this._config.tile_url || "");
     this._setControlValue(this._refs.stylePreset, normalizeSelectValue(this._config.style_preset, STYLE_PRESETS, "mushroom"));
     if (!this._isControlFocused(this._refs.showSpeedometer)) {
@@ -2858,8 +3719,18 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       this._refs.colorPicker.value = normalizeHex(this._config.color);
     }
     this._syncSubtitleEditorState();
+    this._syncSpeedEditorState();
     this._syncTileStyleEditorState();
     this._updateActionEditorContext();
+  }
+
+  _setEditorVisibility(control, visible) {
+    if (!control) {
+      return;
+    }
+
+    control.hidden = !visible;
+    control.style.display = visible ? "" : "none";
   }
 
   _syncSubtitleEditorState() {
@@ -2874,21 +3745,28 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     const usesSuffix = mode === "custom_entity" || mode === "speed" || mode === "speed_or_parked";
     const usesFallback = ["speed", "speed_or_parked", "heading", "last_updated", "custom_entity"].includes(mode);
 
-    const applyVisibility = (control, visible) => {
-      if (!control) {
-        return;
-      }
+    this._setEditorVisibility(this._refs.subtitle, usesText);
+    this._setEditorVisibility(this._refs.subtitleEntity, usesEntity);
+    this._setEditorVisibility(this._refs.subtitleLabel, usesLabel);
+    this._setEditorVisibility(this._refs.subtitleSuffix, usesSuffix);
+    this._setEditorVisibility(this._refs.subtitleFallback, usesFallback);
+  }
 
-      control.hidden = !visible;
-      control.style.display = visible ? "" : "none";
-    };
+  _syncSpeedEditorState() {
+    if (!this._rendered) {
+      return;
+    }
 
-    applyVisibility(this._refs.subtitle, usesText);
-    applyVisibility(this._refs.subtitleEntity, usesEntity);
-    applyVisibility(this._refs.subtitleLabel, usesLabel);
-    applyVisibility(this._refs.subtitleSuffix, usesSuffix);
-    applyVisibility(this._refs.subtitleFallback, usesFallback);
-    this._syncTileStyleEditorState();
+    const subtitleMode = normalizeSelectValue(this._config.subtitle_mode, SUBTITLE_MODES, "none");
+    const needsSpeedEntity =
+      this._config.show_speedometer === true ||
+      this._config.auto_zoom_by_speed === true ||
+      subtitleMode === "speed" ||
+      subtitleMode === "speed_or_parked";
+
+    this._setEditorVisibility(this._refs.speedEntity, needsSpeedEntity);
+    this._setEditorVisibility(this._refs.speedEntityHelper, needsSpeedEntity);
+    this._setEditorVisibility(this._refs.speedometerStyle, this._config.show_speedometer === true);
   }
 
   _syncTileStyleEditorState() {
@@ -2900,10 +3778,12 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     const showTileUrl = tileStyle === "custom";
     const showMapLabels = tileStyle !== "custom";
 
-    this._refs.tileUrl.hidden = !showTileUrl;
-    this._refs.tileUrl.style.display = showTileUrl ? "" : "none";
-    this._refs.mapLabelsCard.hidden = !showMapLabels;
-    this._refs.mapLabelsCard.style.display = showMapLabels ? "" : "none";
+    const showCartoKey = !showTileUrl || isCartoTileUrl(this._config.tile_url || "");
+    this._setEditorVisibility(this._refs.cartoApiKey, showCartoKey);
+    this._setEditorVisibility(this._refs.cartoKeyHelper, showCartoKey);
+    this._setEditorVisibility(this._refs.tileUrl, showTileUrl);
+    this._setEditorVisibility(this._refs.tileUrlHelper, showTileUrl);
+    this._setEditorVisibility(this._refs.mapLabelsCard, showMapLabels);
   }
 
   _getTileStyleSelection() {
@@ -2937,8 +3817,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     return this.shadowRoot.activeElement === control || control.matches?.(":focus-within");
   }
 
-  _setControlValue(control, value) {
-    if (!control || this._isControlFocused(control)) {
+  _setControlValue(control, value, updateWhileFocused = false) {
+    if (!control || (!updateWhileFocused && this._isControlFocused(control))) {
       return;
     }
 
@@ -2966,6 +3846,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     const config = { ...this._config };
 
     delete config.entities;
+    delete config.gear_entity;
     delete config.subtitle_text;
 
     if (!deviceId) {
@@ -3055,6 +3936,11 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       const normalizedColor = normalizeHex(rawValue);
       this._refs.colorPicker.value = normalizedColor;
       this._updateConfigValue("color", normalizedColor);
+      return;
+    }
+
+    if (field === "carto_api_key") {
+      this._updateConfigValue("carto_api_key", firstNonEmptyString(rawValue));
       return;
     }
 
