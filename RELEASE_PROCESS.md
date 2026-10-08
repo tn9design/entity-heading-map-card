@@ -20,3 +20,6 @@ HACS default-catalog submission requires passing HACS validation without ignored
 - Put a small, subdued caption immediately below the image. Use supported semantic markup such as `<sub>`; do not assume custom CSS transfers to HACS.
 - Separate future plans from released changes with a horizontal rule and a `Next Priority` section. Say "the next planned large update" so smaller fixes can precede it without a date commitment.
 - Review in a neutral/light-theme preview and, when possible, the actual HA renderer. Preview styling must not be presented as guaranteed renderer behavior.
+- Before presenting any new release notes for review, automatically create or refresh the visual preview using the approved layout in `output/card-showcase/release-notes.html`. A Markdown draft alone does not complete the review preparation.
+- Preserve the approved visual hierarchy: main title stronger than subsection titles; announcement directly beneath the title; headings close to their content; paragraph gaps smaller than gaps between sections; captions smallest, subdued, and immediately beneath their images. Retain the thin gray divider above future plans.
+- Check the actual HA renderer before publication when accessible. If it is unavailable, state that limitation; do not describe the styled local preview as the exact HACS/HA appearance.
