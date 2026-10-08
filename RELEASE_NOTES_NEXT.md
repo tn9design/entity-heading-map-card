@@ -2,7 +2,9 @@
 
 Setting up your vehicle and customizing its appearance is easier!
 
-## 🚗 Vehicle Settings Together
+🚗
+
+## Vehicle Settings Together
 
 Location, heading, speed, and gear choices now sit together under Device. Separate latitude and longitude sensors are available when needed.
 
@@ -12,27 +14,37 @@ Choosing a device fills detected sources. Manual choices remain intact when you 
 
 Entity menus reuse unchanged rows during Home Assistant updates to keep interaction smooth. Opening another menu closes the previous one; clicking outside or pressing Escape dismisses the menu.
 
-## 🖼️ Custom Images Made Easier
+🖼️
+
+## Custom Images Made Easier
 
 Day and night image pickers show thumbnails. Choose an existing HA image or use Replace Image to upload one.
 
 Help & Advanced contains matching day/night image instructions, copyable creation prompts, and manual URLs. Image mode, size, and nighttime lighting have a clearer layout.
 
-## 🎨 Header Colors
+🎨
+
+## Header Colors
 
 Set the header icon and its background independently. Automatic resets each color to the dashboard theme.
 
-## 📐 Card Width
+📐
+
+## Card Width
 
 An optional maximum width centers the card within the available dashboard space. Custom widths have a 280 px minimum; 0 fills the available space.
 
-## 🅿️ Clearer Park Display
+🅿️
+
+## Clearer Park Display
 
 An explicit Park gear shows P in the speedometer without a speed unit. Drive, Reverse, and Neutral retain the speed readout. Missing gear never infers Park from zero speed alone.
 
 Speed Or Parked subtitles use the same speed sensor as the speedometer and display the default Parked text when stopped.
 
-## 🛰️ Satellite Imagery
+🛰️
+
+## Satellite Imagery
 
 Choose Satellite (MapTiler) in Map Style & Layout and enter your MapTiler API key. Provider usage limits apply.
 
@@ -42,8 +54,8 @@ Show Map Labels switches between plain imagery and imagery with streets, roads, 
 
 The README includes examples for every field when creating a MapTiler key, including local and remote Home Assistant addresses.
 
----
+🎨
 
-## 🎨 Next Priority: A Clearer Configuration Experience
+## Next Priority: A Clearer Configuration Experience
 
 The next planned large update will further simplify and reorganize the configuration experience. Smaller fixes may arrive first. A richer showcase card and Add Card preview remain planned for later.
