@@ -34,7 +34,9 @@ Speed Or Parked subtitles use the same speed sensor as the speedometer and displ
 
 ## 🛰️ Satellite Imagery
 
-Choose Satellite (MapTiler) in Map Style & Layout and enter your MapTiler API key. Heading markers, custom vehicle images, speed displays, and map controls remain available over satellite imagery. Provider usage limits apply; satellite imagery has been verified in Home Assistant with an origin-restricted personal key.
+Choose Satellite (MapTiler) in Map Style & Layout and enter your MapTiler API key. Provider usage limits apply.
+
+Heading markers, custom vehicle images, speed displays, and map controls remain available over satellite imagery. Satellite imagery has been verified in Home Assistant with an origin-restricted personal key.
 
 Show Map Labels switches between plain imagery and imagery with streets, roads, and place names. Attribution opacity also works with satellite maps, and provider credits stay clear of the zoom controls on narrow cards.
 
