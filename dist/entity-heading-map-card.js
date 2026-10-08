@@ -26722,9 +26722,11 @@ var EntityHeadingMapCard = class extends HTMLElement {
       unitEl.textContent = "";
       return;
     }
-    const speedData = showEditorPreview ? this._getPreviewSpeedData() : this._formatConfiguredSpeed();
     const activePoint = points[0] || this._activePoint;
-    if (!showEditorPreview && (!this._config?.speed_entity || !speedData || this._isParked(activePoint))) {
+    const gear = String(this._getEntityState(activePoint?.gear_entity || this._config.gear_entity)?.state || "").trim().toLowerCase();
+    const inPark = ["p", "park", "parked"].includes(gear);
+    const speedData = inPark ? { value: "P", unit: "", speed: 0 } : showEditorPreview ? this._getPreviewSpeedData() : this._formatConfiguredSpeed();
+    if (!showEditorPreview && !inPark && (!this._config?.speed_entity || !speedData)) {
       speedometerEl.hidden = true;
       speedometerEl.classList.remove("preview-interactive");
       speedometerEl.classList.remove("warning");
@@ -26738,7 +26740,7 @@ var EntityHeadingMapCard = class extends HTMLElement {
     speedometerEl.classList.toggle("gauge", speedometerStyle === "gauge");
     speedometerEl.style.setProperty("--speedometer-value-size", this._getSpeedometerValueSize(speedData.value, speedometerStyle));
     valueEl.textContent = speedData.value;
-    unitEl.textContent = speedometerStyle === "gauge" ? formatSpeedUnitLabel(speedData.unit) : "";
+    unitEl.textContent = !inPark && speedometerStyle === "gauge" ? formatSpeedUnitLabel(speedData.unit) : "";
     if (speedometerStyle === "gauge") {
       this._updateGaugeSegments(speedometerEl, speedData);
     } else {
