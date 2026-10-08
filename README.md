@@ -1,64 +1,46 @@
-# Advanced Map Card 3000
+<h1>Advanced Map Heading Card 3000GT</h1>
+<p class="product-meta"><strong>Public Beta</strong> · Custom Lovelace Card · Heading-Aware Markers</p>
+<p><strong>See Where It Is. See Where It’s Going.</strong></p>
+<p>A heading-aware map card for Home Assistant, designed primarily for vehicle entities that provide location, heading, and speed data. Your marker turns with your vehicle, with the map and controls styled to suit your dashboard.</p>
 
-<p align="left">
-  <a href="https://github.com/tn9design/entity-heading-map-card">
-    <img src="https://img.shields.io/badge/version-v0.3.0--beta.1-1e88e5?style=flat-square" alt="Version" />
-  </a>
-  <a href="https://www.hacs.xyz/">
-    <img src="https://img.shields.io/badge/HACS-Custom%20repository-fc8d3d?style=flat-square" alt="HACS custom repository" />
-  </a>
-</p>
+<img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/heading-hero.gif" alt="Three actual map cards showing a simulated vehicle driving south and turning east; arrows rotate with the turn." width="788">
+<p><sub>Actual card rendering with simulated data in Washington, DC. No real vehicle or household location data.</sub></p>
+<h2>The Turn Tells The Story.</h2>
+<p>A dot tells you where a vehicle is. A heading arrow also shows which way it’s facing. Connect a location entity and a heading sensor, and the marker follows the supplied direction as the location updates.</p>
+<h2>Make It Yours.</h2>
+<p>From a minimal map to a complete vehicle card, choose what belongs on your dashboard. Click any thumbnail to view a larger comparison.</p>
+<table>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/colors-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/colors.png" width="160" alt="Your marker. Your color."></a></td><td><strong>Your Marker. Your Color.</strong><br>Choose an arrow color and marker size that stand out on your dashboard.</td></tr>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/styles-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/styles.png" width="160" alt="A map for every dashboard."></a></td><td><strong>A Map For Every Dashboard.</strong><br>Use Home Assistant maps without a separate map key, or choose CARTO light, dark, and Voyager styles.</td></tr>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/night-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/night.png" width="160" alt="Day to night, automatically."></a></td><td><strong>Day To Night, Automatically.</strong><br>Let Home Assistant maps follow your dashboard’s theme, or configure separate day and night CARTO styles.</td></tr>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/speed-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/speed.png" width="160" alt="Speed, at a glance."></a></td><td><strong>Speed, At A Glance.</strong><br>Pick a classic speed readout or a gauge, customize its appearance, or hide it entirely.</td></tr>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/controls-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/controls.png" width="160" alt="Only the controls you want."></a></td><td><strong>Only The Controls You Want.</strong><br>Show or hide zoom and recenter buttons to keep the map as minimal as you like.</td></tr>
+<tr><td width="170"><a href="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/headers-large.png" title="View Larger Comparison"><img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/showcase/headers.png" width="160" alt="Give it a name. Or keep it clean."></a></td><td><strong>Give It A Name. Or Keep It Clean.</strong><br>Customize the title and subtitle, or hide the header for an uninterrupted map.</td></tr>
+</table>
+<p><strong>Prefer A Custom Marker?</strong> Use your own top-down vehicle image, with separate day and night images, adjustable size, and optional nighttime headlight and rear-light effects.</p>
+<h2>Built Around Your Entities.</h2>
+<p>Use your existing Home Assistant location, heading, and speed entities. The card displays the data they provide; update frequency depends on your integration. Optional marker tooltips keep extra details close by.</p>
+<h3>Tested With TeslaMate</h3>
+<p>Developed and tested using TeslaMate location, heading, and speed entities. Other integrations can work when they expose equivalent data. <a href="https://docs.teslamate.org/docs/integrations/home_assistant/">TeslaMate Setup &amp; Documentation</a></p>
+<h3>Tesla Fleet Compatibility</h3>
+<p>Tesla Fleet provides vehicle location and optional speed data, but Home Assistant’s built-in integration currently doesn’t expose heading and polls every 10 minutes by default. Its location entity can be used, but it won’t provide the same heading-aware driving experience. <a href="https://www.home-assistant.io/integrations/tesla_fleet/">Tesla Fleet Integration Details</a></p>
+<h2>Get Your First Map Running.</h2>
+<ol>
+<li><strong>Install The Card.</strong> Add <code>tn9design/entity-heading-map-card</code> as a custom Dashboard repository in HACS, install it, and reload your browser.</li>
+<li><strong>Connect Your Entities.</strong> Add Advanced Map Heading Card 3000GT to a dashboard and select your location entity and heading sensor. Add a speed sensor if you want a speedometer.</li>
+<li><strong>Choose Your Map Provider.</strong> New cards default to Home Assistant maps, with no separate account or map key required on Home Assistant 2026.9 or newer with the map service. Existing cards keep their saved CARTO/custom settings. For CARTO, get your own basemap key from <a href="https://carto.com/basemaps/apikey">CARTO</a> and save it in the card’s configuration. Keep map attribution visible.</li>
+</ol>
+<p><a href="https://github.com/tn9design/entity-heading-map-card#configuration">Configuration reference &amp; examples</a> · <a href="https://github.com/tn9design/entity-heading-map-card/issues">Report an issue</a> · <a href="https://github.com/tn9design/entity-heading-map-card/releases">Release notes</a></p>
+<h2>A Beta Worth Helping Shape.</h2>
+<p>The card is still in its initial beta. A simpler, better-organized visual editor is planned. If something feels confusing or doesn’t behave as expected, open an issue with your card version and a description of the problem.</p>
+<p><sub>Maps © OpenStreetMap contributors © CARTO. Screenshots use the released card and synthetic demo data.</sub></p>
 
-<p align="left">
-  An initial-beta Home Assistant Lovelace map card for showing one or more tracked entities with a directional heading marker.
-</p>
 
-It is designed for tracked objects such as:
-
-- vehicles
-- people
-- boats
-- aircraft
-- bikes
-- anything else that exposes coordinates and an optional heading
-
-The card uses Leaflet with built-in CARTO tile styles. CARTO requires your own API key; personal, non-commercial use has a free allowance. See the CARTO setup instructions below.
-
-<p align="left">
-  <img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
-</p>
-
-**Beta status:** Features and configuration menus are still evolving. The editor is planned for simplification and reorganization. Heading-aware markers are a core feature.
-
-## Why This Card
-
-- Built for vehicles, people, and anything else that exposes coordinates with an optional heading
-- Looks native in Home Assistant instead of feeling like a bolted-on map widget
-- Works with a single entity, split latitude/longitude sensors, or multi-entity map layouts
-- Falls back gracefully to a blue dot when heading data is unavailable
-- Includes a modern Home Assistant editor with device auto-discovery
-
-## Features
-
-- HACS-friendly frontend card
-- CARTO map styles with your own API key and built-in light/dark switching
-- Supports one or many entities
-- Heading-aware arrows and custom image markers that rotate with the reported direction
-- Day/night vehicle images, independent image sizing, and optional automatic headlight/rear-light effects
-- Blue dot fallback when heading is not available
-- Auto-fit bounds for multiple markers
-- Home Assistant UI editor with device auto-discovery
-- Works with either:
-  - a single entity that exposes `latitude` and `longitude` as attributes
-  - separate entities for latitude, longitude, and heading
-- Optional header icon and subtitle
-- Configurable tap action and icon tap action
-- Speedometer and speed-based auto zoom for single-device cards
-- Configurable marker color, zoom, height, zoom controls, card style, map style, and tile layer
+---
 
 ## Installation
 
-[![Open your Home Assistant instance and open the Advanced Map Card 3000 repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tn9design&repository=entity-heading-map-card)
+[![Open your Home Assistant instance and open the Advanced Map Heading Card 3000GT repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tn9design&repository=entity-heading-map-card)
 
 The easiest path is to open the repository directly in HACS using the button above.
 
@@ -70,7 +52,7 @@ The card is currently available as a custom repository. Default-catalog listing 
 2. Add:
    Repository: `tn9design/entity-heading-map-card`
    Type: `Dashboard`
-3. Install `Advanced Map Card 3000`.
+3. Install `Advanced Map Heading Card 3000GT`.
 
 #### How HACS Installs This Card
 
@@ -154,7 +136,7 @@ entities:
 
 ## Configuration
 
-<img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/example_02.png" alt="Advanced Map Card 3000 editor options" width="550" align="right" style="border-radius: 8px;" />
+<img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/example_02.png" alt="Advanced Map Heading Card 3000GT editor options" width="550" align="right" style="border-radius: 8px;" />
 
 The built-in editor is organized the same way the card is typically configured in Home Assistant.
 
