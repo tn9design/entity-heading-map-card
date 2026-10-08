@@ -27133,6 +27133,34 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
     this._registryPromise = null;
     this._registryError = null;
     this._rendered = false;
+    this._dismissEntityMenus = (event) => {
+      const path = event.composedPath();
+      if (path.some((node) => node?.id === "vehicle_entity_search")) return;
+      const picker = path.find((node) => node?.classList?.contains("entity-picker"));
+      this._closeEntityMenus(picker);
+    };
+    this._escapeEntityMenus = (event) => {
+      if (event.key !== "Escape") return;
+      const open = this.shadowRoot.querySelector(".entity-picker[open]");
+      if (!open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeEntityMenus();
+      open.querySelector("summary").focus();
+    };
+  }
+  connectedCallback() {
+    document.addEventListener("click", this._dismissEntityMenus, true);
+    this.addEventListener("keydown", this._escapeEntityMenus);
+  }
+  disconnectedCallback() {
+    document.removeEventListener("click", this._dismissEntityMenus, true);
+    this.removeEventListener("keydown", this._escapeEntityMenus);
+  }
+  _closeEntityMenus(except) {
+    this.shadowRoot.querySelectorAll(".entity-picker[open]").forEach((picker) => {
+      if (picker !== except) picker.open = false;
+    });
   }
   setConfig(config) {
     this._config = normalizeCardConfig(config);
@@ -27899,7 +27927,10 @@ var EntityHeadingMapCardEditor = class extends HTMLElement {
       }
       const list = picker.querySelector(".entity-options");
       picker.ontoggle = () => {
-        if (picker.open) this._applyVehicleEntityOptions();
+        if (picker.open) {
+          this._closeEntityMenus(picker);
+          this._applyVehicleEntityOptions();
+        }
       };
       if (!picker.open) continue;
       let ids = Object.keys(this._hass.states).filter((id3) => {
