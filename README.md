@@ -315,3 +315,26 @@ The deterministic browser fixture uses synthetic vehicle positions and a loopbac
 ### Satellite Imagery
 
 Choose **Satellite (MapTiler)** under **Map Style & Layout**, then enter your own [MapTiler API key](https://cloud.maptiler.com/). This uses the documented `satellite-v4` XYZ tile service, preserves vehicle markers and controls, and displays the provider credits and logo. The key is masked in the editor but stored in the dashboard configuration and accessible to its users. Account limits and origin restrictions apply. Satellite imagery does not use the HA map theme or street-label toggle. Native imagery requests stop at zoom 18 and are enlarged at higher card zoom levels. Live imagery validation requires a valid personal key.
+
+#### Create Your MapTiler Key
+
+In MapTiler Cloud, open **API Keys → New Key**. Use these examples:
+
+| Field | Example / What To Enter |
+| --- | --- |
+| Name | `Home Assistant Map Card` — a label for your own reference. |
+| Description | `Satellite imagery for Advanced Map Heading Card 3000GT` — a description for your own reference. |
+| Allowed user-agent header | Leave blank so the key works across browsers and the Home Assistant app. |
+| Allowed HTTP Origins | The hostnames or IP addresses you use to open Home Assistant, one per line. Replace the examples below with your own addresses. |
+
+For example, if you open Home Assistant at `http://homeassistant.local:8123`, `http://192.168.1.100:8123`, and a remote Nabu Casa address, enter:
+
+```text
+homeassistant.local
+192.168.1.100
+your-instance.ui.nabu.casa
+```
+
+Include only addresses you actually use. Omit the protocol (`http://` or `https://`), port (`:8123`), and dashboard path. Replace `your-instance.ui.nabu.casa` with your actual remote hostname, or omit that line if you do not use remote access. Do not enter `?` to allow unknown origins. See [MapTiler's API key instructions](https://docs.maptiler.com/guides/credentials/api-key/) for restriction details.
+
+Create the key, then open the card editor and select **Map Style & Layout → Map provider → Satellite (MapTiler)**. Paste the key into **MapTiler API Key** and save the card. If imagery fails to load, check that the key's allowed origins include the address currently used to access Home Assistant, and check the account's usage limits.
