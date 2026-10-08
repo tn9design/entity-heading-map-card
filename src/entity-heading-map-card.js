@@ -1282,7 +1282,7 @@ class EntityHeadingMapCard extends HTMLElement {
         .speedometer.parked .speedometer-value {
           line-height: 1;
           letter-spacing: 0;
-          transform: translateX(3px);
+          transform: translateX(2px);
         }
 
         .speedometer-unit {
