@@ -10,6 +10,8 @@ Related vehicle entities appear first. Each choice shows its integration, device
 
 Choosing a device fills detected sources. Manual choices remain intact when you reselect the same device.
 
+Entity menus reuse unchanged rows during Home Assistant updates to keep interaction smooth. Opening another menu closes the previous one; clicking outside or pressing Escape dismisses the menu.
+
 ## 🖼️ Custom Images Made Easier
 
 Day and night image pickers show thumbnails. Choose an existing HA image or use Replace Image to upload one.
@@ -33,6 +35,10 @@ Speed Or Parked subtitles use the same speed sensor as the speedometer and displ
 ## 🛰️ Satellite Imagery
 
 Choose Satellite (MapTiler) in Map Style & Layout and enter your MapTiler API key. Heading markers, custom vehicle images, speed displays, and map controls remain available over satellite imagery. Provider usage limits apply; satellite imagery has been verified in Home Assistant with an origin-restricted personal key.
+
+Show Map Labels switches between plain imagery and imagery with streets, roads, and place names. Attribution opacity also works with satellite maps, and provider credits stay clear of the zoom controls on narrow cards.
+
+The README includes examples for every field when creating a MapTiler key, including local and remote Home Assistant addresses.
 
 ---
 
