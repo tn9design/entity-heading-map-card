@@ -1,3 +1,5 @@
+import { createHaBackground } from "./ha-map-provider.js";
+const CARD_TAG = "__CARD_TAG__";
 const LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 let leafletPromise;
@@ -732,9 +734,16 @@ const normalizeCardConfig = (config = {}) => {
   const tileUrl = firstNonEmptyString(config.tile_url) || "";
   const inferredTileStyle = inferTileStyleFromUrl(tileUrl);
   const inferredShowMapLabels = inferShowMapLabelsFromUrl(tileUrl);
+  const tileStyle = normalizeSelectValue(
+    !config.map_provider && tileUrl === DEFAULT_VOYAGER_TILE_URL ? "voyager" : config.tile_style,
+    TILE_STYLE_EDITOR_OPTIONS,
+    tileUrl && !isBuiltInTileUrl(tileUrl) ? "custom" : inferredTileStyle || "default"
+  );
 
   return {
     ...config,
+    map_provider: normalizeSelectValue(config.map_provider, new Set(["home_assistant", "carto", "custom"]), tileStyle === "custom" ? "custom" : "carto"),
+    map_theme: normalizeSelectValue(config.map_theme, new Set(["auto", "light", "dark"]), "auto"),
     zoom: asNumber(config.zoom) ?? DEFAULT_ZOOM,
     fit_bounds: config.fit_bounds !== false,
     height: normalizeHeight(config.height),
@@ -753,6 +762,7 @@ const normalizeCardConfig = (config = {}) => {
     show_attribution: config.show_attribution === true,
     attribution_opacity: Math.min(100, Math.max(0, asNumber(config.attribution_opacity) ?? 100)),
     show_map_labels:
+      !config.map_provider && tileUrl === DEFAULT_VOYAGER_TILE_URL ? true :
       typeof inferredShowMapLabels === "boolean" && config.show_map_labels === undefined
         ? inferredShowMapLabels
         : config.show_map_labels !== false,
@@ -780,11 +790,7 @@ const normalizeCardConfig = (config = {}) => {
     style_preset: normalizeSelectValue(config.style_preset, STYLE_PRESETS, "mushroom"),
     speedometer_style: normalizeSelectValue(config.speedometer_style, SPEEDOMETER_STYLES, "classic"),
     marker_tooltip_mode: normalizeSelectValue(config.marker_tooltip_mode, MARKER_TOOLTIP_MODES, "off"),
-    tile_style: normalizeSelectValue(
-      config.tile_style,
-      TILE_STYLE_EDITOR_OPTIONS,
-      tileUrl && !isBuiltInTileUrl(tileUrl) ? "custom" : inferredTileStyle || "default"
-    ),
+    tile_style: tileStyle,
   };
 };
 
@@ -832,6 +838,9 @@ class EntityHeadingMapCard extends HTMLElement {
     this._hass = null;
     this._map = null;
     this._tileLayer = null;
+    this._haBackground = null;
+    this._backgroundRequest = 0;
+    this._providerStatus = "";
     this._zoomControl = null;
     this._markers = new Map();
     this._markerPoints = new Map();
@@ -848,6 +857,9 @@ class EntityHeadingMapCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ${LEAFLET_BASE_CSS}
+        .ha-raster-dark { filter: invert(1) hue-rotate(180deg) brightness(.8); }
+        .provider-status { position: absolute; left: 8px; top: 8px; right: 8px; z-index: 4; font-size: 11px; background: var(--card-background-color, #fff); color: var(--primary-text-color, #111); padding: 4px 6px; border-radius: 4px; pointer-events: none; }
+        .provider-status:empty { display: none; }
 
         :host {
           display: block;
@@ -1502,6 +1514,7 @@ class EntityHeadingMapCard extends HTMLElement {
               </svg>
             </button>
             <div id="message" class="map-message">Loading map…</div>
+            <div id="provider-status" class="provider-status" role="status"></div>
             <div id="marker-layer" class="marker-layer" aria-hidden="true"></div>
           </div>
         </div>
@@ -1567,6 +1580,32 @@ class EntityHeadingMapCard extends HTMLElement {
     this._updateMap();
   }
 
+  connectedCallback() {
+    if (this._config && this._hass) this._initLeaflet();
+  }
+
+  disconnectedCallback() {
+    ++this._backgroundRequest;
+    this._haBackgroundPending = false;
+    this._haBackground?.dispose(); this._haBackground = null;
+    this._map?.remove(); this._map = null; this._tileLayer = null; this._zoomControl = null;
+    this._markers.clear(); this._markerPoints.clear();
+    this.shadowRoot.getElementById("marker-layer").replaceChildren();
+    this._viewInitialized = false; this._hasSizedMap = false;
+    if (this._previewSpeedAnimationFrame) cancelAnimationFrame(this._previewSpeedAnimationFrame);
+    this._previewSpeedAnimationFrame = null;
+  }
+
+  _setProviderStatus(message) {
+    this._providerStatus = message;
+    const element = this.shadowRoot?.getElementById("provider-status");
+    if (element) element.textContent = message;
+  }
+
+  _haDarkMode() {
+    return this._config.map_theme === "dark" || (this._config.map_theme !== "light" && this._hass?.themes?.darkMode === true);
+  }
+
   getCardSize() {
     return 4;
   }
@@ -1578,6 +1617,7 @@ class EntityHeadingMapCard extends HTMLElement {
 
     try {
       await ensureLeaflet();
+      if (!this.isConnected) return;
       this._leafletReady = true;
       this._leafletError = null;
       this._ensureMap();
@@ -1844,11 +1884,11 @@ class EntityHeadingMapCard extends HTMLElement {
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
     const tileStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
 
-    if (tileStyle === "custom" && configuredUrl) {
+    if ((this._config.map_provider === "custom" || (!this._config.map_provider && tileStyle === "custom")) && configuredUrl) {
       return configuredUrl;
     }
 
-    if (configuredUrl === DEFAULT_VOYAGER_TILE_URL) {
+    if (this._config.map_provider !== "carto" && configuredUrl === DEFAULT_VOYAGER_TILE_URL) {
       return DEFAULT_VOYAGER_TILE_URL;
     }
 
@@ -1860,9 +1900,33 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   _syncTileLayer() {
-    if (!this._map || !this._leafletReady) {
+    if (!this._map || !this._leafletReady) return;
+    if (this._config.map_provider === "home_assistant") {
+      if (this._haBackground) { this._haBackground.update(this._haDarkMode(), this._config.show_map_labels !== false); return; }
+      if (this._haBackgroundPending) return;
+      this._tileLayer?.remove(); this._tileLayer = null;
+      if (!this._hass?.connection) { this._setProviderStatus("Connecting to Home Assistant maps…"); return; }
+      const request = ++this._backgroundRequest;
+      this._haBackgroundPending = true;
+      this._setProviderStatus("Loading Home Assistant map…");
+      createHaBackground({ L: window.L, map: this._map, hass: this._hass, dark: this._haDarkMode(), labels: this._config.show_map_labels !== false,
+        onStatus: message => { if (request === this._backgroundRequest) this._setProviderStatus(message); },
+        installCss: css => {
+          let element = this.shadowRoot.querySelector("style[data-vector]");
+          if (!element) { element = document.createElement("style"); element.dataset.vector = ""; this.shadowRoot.appendChild(element); }
+          element.textContent = css;
+        }
+      }).then(controller => {
+        if (request !== this._backgroundRequest) controller.dispose();
+        else { this._haBackground = controller; controller.update(this._haDarkMode(), this._config.show_map_labels !== false); }
+      }).catch(() => { if (request === this._backgroundRequest) this._setProviderStatus("Home Assistant map service unavailable."); })
+        .finally(() => { if (request === this._backgroundRequest) this._haBackgroundPending = false; });
       return;
     }
+    if (this._haBackground || this._haBackgroundPending) {
+      ++this._backgroundRequest; this._haBackground?.dispose(); this._haBackground = null; this._haBackgroundPending = false;
+    }
+    this._setProviderStatus("");
 
     const baseUrl = this._getResolvedTileUrl();
     this._map.attributionControl?.setPrefix(false);
@@ -2924,7 +2988,9 @@ class EntityHeadingMapCard extends HTMLElement {
 
   static getStubConfig() {
     return {
-      type: "custom:entity-heading-map-card",
+      type: `custom:${CARD_TAG}`,
+      map_provider: "home_assistant",
+      map_theme: "auto",
       __preview: true,
       show_header: true,
       height: "286px",
@@ -2948,7 +3014,7 @@ class EntityHeadingMapCard extends HTMLElement {
   }
 
   static async getConfigElement() {
-    return document.createElement("entity-heading-map-card-editor");
+    return document.createElement(`${CARD_TAG}-editor`);
   }
 }
 
@@ -3207,7 +3273,9 @@ class EntityHeadingMapCardEditor extends HTMLElement {
           <div class="panel-content">
             <div class="row">
               <ha-select id="style_preset" label="Card Style"></ha-select>
-              <ha-select id="tile_style" label="Map Style"></ha-select>
+              <ha-select id="map_provider" label="Map provider"></ha-select>
+              <ha-select id="map_theme" label="HA map theme"></ha-select>
+              <ha-select id="tile_style" label="CARTO Map Style"></ha-select>
             </div>
             <div id="map_labels_card" class="toggle-card">
               <div class="toggle-copy">
@@ -3280,6 +3348,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       showRecenterButton: this.shadowRoot.getElementById("show_recenter_button"),
       autoZoomBySpeed: this.shadowRoot.getElementById("auto_zoom_by_speed"),
       stylePreset: this.shadowRoot.getElementById("style_preset"),
+      mapProvider: this.shadowRoot.getElementById("map_provider"),
+      mapTheme: this.shadowRoot.getElementById("map_theme"),
       tileStyle: this.shadowRoot.getElementById("tile_style"),
       mapLabelsCard: this.shadowRoot.getElementById("map_labels_card"),
       showMapLabels: this.shadowRoot.getElementById("show_map_labels"),
@@ -3410,9 +3480,6 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       const nextValue = normalizeSelectValue(event.detail.value, TILE_STYLE_EDITOR_OPTIONS, "default");
       const config = { ...this._config, tile_style: nextValue };
 
-      if (nextValue !== "custom") {
-        delete config.tile_url;
-      }
 
       this._commitConfig(config);
     });
@@ -3449,11 +3516,14 @@ class EntityHeadingMapCardEditor extends HTMLElement {
       { value: "bottomright", label: "Bottom Right" },
       { value: "hidden", label: "Hidden" },
     ];
+    this._refs.mapProvider.options = [{ value: "home_assistant", label: "Home Assistant (no API key)" }, { value: "carto", label: "CARTO" }, { value: "custom", label: "Custom URL" }];
+    this._refs.mapTheme.options = [{ value: "auto", label: "Automatic" }, { value: "light", label: "Light" }, { value: "dark", label: "Dark" }];
+    this._refs.mapProvider.addEventListener("selected", event => this._updateConfigValue("map_provider", event.detail.value));
+    this._refs.mapTheme.addEventListener("selected", event => this._updateConfigValue("map_theme", event.detail.value));
     this._refs.tileStyle.options = [
       { value: "default", label: "Default (Auto light/dark)" },
       { value: "dark", label: "Dark" },
       { value: "voyager", label: "Voyager" },
-      { value: "custom", label: "Custom URL" },
     ];
     this._refs.stylePreset.options = [
       { value: "default", label: "Default" },
@@ -3692,6 +3762,8 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     if (!this._isControlFocused(this._refs.showRecenterButton)) {
       this._refs.showRecenterButton.checked = this._config.show_recenter_button !== false;
     }
+    this._setControlValue(this._refs.mapProvider, this._config.map_provider, true);
+    this._setControlValue(this._refs.mapTheme, this._config.map_theme, true);
     this._setControlValue(this._refs.tileStyle, this._getTileStyleSelection());
     if (!this._isControlFocused(this._refs.showMapLabels)) {
       this._refs.showMapLabels.checked = this._config.show_map_labels !== false;
@@ -3775,10 +3847,12 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     }
 
     const tileStyle = this._getTileStyleSelection();
-    const showTileUrl = tileStyle === "custom";
-    const showMapLabels = tileStyle !== "custom";
-
-    const showCartoKey = !showTileUrl || isCartoTileUrl(this._config.tile_url || "");
+    const provider = this._config.map_provider;
+    const showTileUrl = provider === "custom";
+    const showMapLabels = provider !== "custom";
+    this._setEditorVisibility(this._refs.mapTheme, provider === "home_assistant");
+    this._setEditorVisibility(this._refs.tileStyle, provider === "carto");
+    const showCartoKey = provider === "carto" || (showTileUrl && isCartoTileUrl(this._config.tile_url || ""));
     this._setEditorVisibility(this._refs.cartoApiKey, showCartoKey);
     this._setEditorVisibility(this._refs.cartoKeyHelper, showCartoKey);
     this._setEditorVisibility(this._refs.tileUrl, showTileUrl);
@@ -3789,6 +3863,10 @@ class EntityHeadingMapCardEditor extends HTMLElement {
   _getTileStyleSelection() {
     const configuredUrl = firstNonEmptyString(this._config?.tile_url);
     const configuredStyle = normalizeSelectValue(this._config?.tile_style, TILE_STYLE_EDITOR_OPTIONS, "default");
+
+    if (this._config?.map_provider === "carto") {
+      return configuredStyle === "custom" ? "default" : configuredStyle;
+    }
 
     if (configuredStyle === "custom") {
       return "custom";
@@ -3945,7 +4023,7 @@ class EntityHeadingMapCardEditor extends HTMLElement {
     }
 
     if (field === "tile_url") {
-      const config = { ...this._config, tile_style: "custom" };
+      const config = { ...this._config, map_provider: "custom", tile_style: "custom" };
       const normalizedUrl = firstNonEmptyString(rawValue);
 
       if (normalizedUrl) {
@@ -3992,17 +4070,17 @@ class EntityHeadingMapCardEditor extends HTMLElement {
   }
 }
 
-if (!customElements.get("entity-heading-map-card")) {
-  customElements.define("entity-heading-map-card", EntityHeadingMapCard);
+if (!customElements.get(CARD_TAG)) {
+  customElements.define(CARD_TAG, EntityHeadingMapCard);
 }
 
-if (!customElements.get("entity-heading-map-card-editor")) {
-  customElements.define("entity-heading-map-card-editor", EntityHeadingMapCardEditor);
+if (!customElements.get(`${CARD_TAG}-editor`)) {
+  customElements.define(`${CARD_TAG}-editor`, EntityHeadingMapCardEditor);
 }
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "entity-heading-map-card",
+  type: CARD_TAG,
   name: "Advanced Map Card 3000",
   preview: true,
   description: "Shows one or more entities on a map with a directional heading arrow.",

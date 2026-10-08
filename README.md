@@ -2,7 +2,7 @@
 
 <p align="left">
   <a href="https://github.com/tn9design/entity-heading-map-card">
-    <img src="https://img.shields.io/badge/version-v0.2.0-1e88e5?style=flat-square" alt="Version" />
+    <img src="https://img.shields.io/badge/version-v0.3.0--beta.1-1e88e5?style=flat-square" alt="Version" />
   </a>
   <a href="https://www.hacs.xyz/">
     <img src="https://img.shields.io/badge/HACS-Custom%20repository-fc8d3d?style=flat-square" alt="HACS custom repository" />
@@ -25,7 +25,7 @@ It is designed for tracked objects such as:
 The card uses Leaflet with built-in CARTO tile styles. CARTO requires your own API key; personal, non-commercial use has a free allowance. See the CARTO setup instructions below.
 
 <p align="left">
-  <img src="images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
+  <img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/example_01.png" alt="Advanced Map Card 3000 preview" width="600" style="border-radius: 8px;" />
 </p>
 
 **Beta status:** Features and configuration menus are still evolving. The editor is planned for simplification and reorganization. Heading-aware markers are a core feature.
@@ -43,7 +43,8 @@ The card uses Leaflet with built-in CARTO tile styles. CARTO requires your own A
 - HACS-friendly frontend card
 - CARTO map styles with your own API key and built-in light/dark switching
 - Supports one or many entities
-- Rotated heading arrow when heading is available
+- Heading-aware arrows and custom image markers that rotate with the reported direction
+- Day/night vehicle images, independent image sizing, and optional automatic headlight/rear-light effects
 - Blue dot fallback when heading is not available
 - Auto-fit bounds for multiple markers
 - Home Assistant UI editor with device auto-discovery
@@ -153,7 +154,7 @@ entities:
 
 ## Configuration
 
-<img src="images/example_02.png" alt="Advanced Map Card 3000 editor options" width="550" align="right" style="border-radius: 8px;" />
+<img src="https://raw.githubusercontent.com/tn9design/entity-heading-map-card/main/images/example_02.png" alt="Advanced Map Card 3000 editor options" width="550" align="right" style="border-radius: 8px;" />
 
 The built-in editor is organized the same way the card is typically configured in Home Assistant.
 
@@ -185,7 +186,7 @@ The built-in editor is organized the same way the card is typically configured i
 - `color`: Default marker color.
 - `speed_entity`: Explicit Home Assistant entity used for the speedometer and speed-based auto zoom.
 - `show_speedometer`: Show a speed badge while the selected speed entity is moving. Default: `false`.
-- `auto_zoom_by_speed`: Adjust zoom automatically in 20 mph bands while the selected speed entity is moving. Default: `false`.
+- `auto_zoom_by_speed`: Adjust zoom smoothly with speed (one zoom level per 20 mph) while the selected speed entity is moving. Default: `false`.
 
 <div style="clear: both;"></div>
 
@@ -267,7 +268,7 @@ CARTO attribution is always shown for CARTO maps. Raster tiles are limited to na
 The following enhancements are under consideration for future releases as the card continues to evolve.
 
 - [ ] Header styling controls for icon, title, and subtitle colors.
-- [ ] A recenter control that restores the default map view after the map has been moved or zoomed.
+- [x] A recenter control that restores the tracked map view after panning or zooming.
 - [ ] Custom interactions for the map marker itself, including marker tap actions.
 - [ ] Satellite tile support for advanced users who want to provide their own credentials or API keys.
 - [ ] Custom SVG marker support for replacing the default arrow with a user-supplied icon.
@@ -275,12 +276,12 @@ The following enhancements are under consideration for future releases as the ca
 ## Compatibility
 
 - Home Assistant Lovelace dashboard card
-- HACS default repository
-- Leaflet-based frontend card with no external API key required for the default setup
+- Available through HACS as a custom repository; default-catalog submission pending
+- Leaflet-based frontend card; built-in CARTO styles require a personal API key
 
 ## Development
 
-The current scaffold keeps the source file in `src/` and copies it to `dist/`:
+The build bundles the source, vector renderer, worker and CSS into one JavaScript file in `dist/`:
 
 ```bash
 npm run build
@@ -308,3 +309,23 @@ Custom image markers show the headlight wash and faint red rear glow after sunse
 show_headlights: true
 gear_entity: sensor.onyx_onyx_shift_state
 ```
+
+### Home Assistant maps — 0.3.0-beta.1
+
+New cards use Home Assistant's vector maps without a CARTO account or API key. Requires Home Assistant 2026.9+ with the map service. Existing cards without `map_provider` keep their previous CARTO/custom provider and appearance. To opt in:
+
+```yaml
+map_provider: home_assistant
+map_theme: auto # auto, light, dark
+show_map_labels: true
+```
+
+Choose **Map Style & Layout → Map provider** in the visual editor. CARTO (`map_provider: carto`) retains its personal key and default/dark/voyager styles. Custom (`map_provider: custom`) retains its raster `tile_url`. Switching providers preserves inactive settings. HA automatic theme follows the interface theme; labels hide text while keeping other vector features. Heading markers, image size, lights, tooltips, tracking and controls continue to use Leaflet.
+
+The single JavaScript artifact bundles MapLibre, its worker and CSS. No additional resource registration or credentials are needed. Tokens stay in memory, are refreshed every 20 minutes and after connection recovery, and are sent only to the connected instance's map proxy. Both legacy URL-token and newer header-token transports are supported.
+
+Without WebGL or workers, or after unrecovered WebGL context loss, the card uses HA's raster proxy. It retains headings and controls, supports overzoom to 20, and applies dark filtering only to the background. Raster labels and styles are limited; the card displays a fallback notice. If HA's map service is unavailable, markers remain with a compatibility/retry message; the card does not switch to CARTO automatically.
+
+`npm run build:beta` creates an isolated `entity-heading-map-card-beta.js`, registered as `custom:entity-heading-map-card-beta` with a separate editor. `npm run build` creates the normal HACS artifact. Both use esbuild; install dependencies with `npm ci` first. This release remains beta; default HACS catalog submission is deferred.
+
+The deterministic browser fixture uses synthetic vehicle positions and a loopback relay to HA's map service. On this macOS test host, `npm run test:browser:serve` obtains the existing HA credential from Keychain without printing it. Open `http://127.0.0.1:8768/`; run the functions in `tests/vector-browser-*.js` with Playwright CLI `run-code`. Recovery tests reload the page; record their results before proceeding. The relay is for local testing only and does not change entities.

@@ -1,7 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const definitions=new Map();
 const context={URL,HTMLElement:class{},customElements:{get:n=>definitions.get(n),define:(n,c)=>definitions.set(n,c)},window:{customCards:[]},console};vm.createContext(context);
-vm.runInContext(fs.readFileSync('src/entity-heading-map-card.js','utf8')+'\nthis.testApi={withCartoApiKey,isCartoTileUrl,EntityHeadingMapCard,EntityHeadingMapCardEditor,normalizeCardConfig};',context);
+vm.runInContext(fs.readFileSync('src/entity-heading-map-card.js','utf8').replace(/^import .*?;\n/, '').replaceAll('__CARD_TAG__', 'entity-heading-map-card')+'\nthis.testApi={withCartoApiKey,isCartoTileUrl,EntityHeadingMapCard,EntityHeadingMapCardEditor,normalizeCardConfig};',context);
 const {withCartoApiKey,isCartoTileUrl,EntityHeadingMapCard}=context.testApi;
 const template='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 assert.equal(withCartoApiKey(template,' a&b '),template+'?key=a%26b');
@@ -48,3 +48,18 @@ card._hass.states['sun.sun'].state='above_horizon';assert.equal(card._shouldShow
 card._hass.states['sun.sun'].state='unavailable';assert.equal(card._shouldShowHeadlights(),false);
 card._config.show_headlights=false;assert.equal(card._shouldShowHeadlights(),false);
 console.log('Passed: Park priority, D/R/N at zero speed, unknown/missing gear speed fallback, daylight and unknown sun disabled.');
+
+assert.equal(normalize({}).map_provider,'carto');
+assert.equal(normalize({tile_style:'custom',tile_url:'https://example.org/tiles'}).map_provider,'custom');
+assert.equal(normalize({map_provider:'home_assistant'}).map_provider,'home_assistant');
+assert.equal(EntityHeadingMapCard.getStubConfig().map_provider,'home_assistant');
+console.log('Passed: legacy provider preservation and HA default for new cards.');
+
+card._config=normalize({tile_style:'default',tile_url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'});
+assert.equal(card._config.tile_style,'voyager');
+assert.match(card._getResolvedTileUrl(),/voyager/);
+console.log('Passed: legacy explicit Voyager URL keeps its background.');
+
+assert.equal(normalize({tile_style:'default',tile_url:'https://example.org/{z}/{x}/{y}.png'}).map_provider,'carto');
+assert.equal(normalize({tile_url:'https://example.org/{z}/{x}/{y}.png'}).map_provider,'custom');
+console.log('Passed: inactive legacy custom URLs do not change provider.');

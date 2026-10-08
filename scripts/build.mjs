@@ -1,34 +1,26 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import path from "node:path";
+import { build } from "esbuild";
 
 const rootDir = path.resolve(import.meta.dirname, "..");
-const packageJsonPath = path.join(rootDir, "package.json");
-const distDir = path.join(rootDir, "dist");
-const distPath = path.join(distDir, "entity-heading-map-card.js");
-
-const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
-const sourcePath = path.join(rootDir, "src", "entity-heading-map-card.js");
-const src = await readFile(sourcePath, "utf8");
-
-const timestampFormatter = new Intl.DateTimeFormat("sv-SE", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-  timeZoneName: "short",
+const packageJson = JSON.parse(await readFile(path.join(rootDir, "package.json"), "utf8"));
+const notices = await readFile(path.join(rootDir, "THIRD_PARTY_NOTICES.txt"), "utf8");
+const beta = process.argv.includes("--beta");
+const tag = beta ? "entity-heading-map-card-beta" : "entity-heading-map-card";
+const filename = tag + ".js";
+const source = await readFile(path.join(rootDir, "src/entity-heading-map-card.js"), "utf8");
+await mkdir(path.join(rootDir, "dist"), { recursive: true });
+const worker = await build({ entryPoints: [path.join(rootDir, "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs")], bundle: true, format: "iife", target: "es2020", minify: true, write: false });
+await build({
+  stdin: { contents: source.replaceAll("__CARD_TAG__", tag), resolveDir: path.join(rootDir, "src"), sourcefile: "entity-heading-map-card.js" },
+  outfile: path.join(rootDir, "dist", filename), bundle: true, format: "esm", target: "es2020", minify: false,
+  loader: { ".css": "text" }, legalComments: "inline",
+  banner: { js: `/* Advanced Map Card 3000 ${packageJson.version}${beta ? " isolated beta" : ""} */\n/* ${notices.replaceAll("*/", "* /")} */` },
+  plugins: [{ name: "existing-leaflet", setup(builder) {
+    builder.onResolve({ filter: /^card-vector-worker$/ }, () => ({ path: "worker", namespace: "card-worker" }));
+    builder.onLoad({ filter: /.*/, namespace: "card-worker" }, () => ({ contents: `export default ${JSON.stringify(worker.outputFiles[0].text)};`, loader: "js" }));
+    builder.onResolve({ filter: /^leaflet$/ }, () => ({ path: "leaflet", namespace: "card-global" }));
+    builder.onLoad({ filter: /.*/, namespace: "card-global" }, () => ({ contents: "export default window.L;", loader: "js" }));
+  } }]
 });
-
-const buildTimestamp = timestampFormatter
-  .format(new Date())
-  .replace(",", "")
-  .replace(" GMT", " UTC");
-
-const output = src
-  .replaceAll("__CARD_VERSION__", packageJson.version)
-  .replaceAll("__CARD_BUILD_TIMESTAMP__", buildTimestamp);
-
-await mkdir(distDir, { recursive: true });
-await writeFile(distPath, output);
+console.log(`Built dist/${filename}`);

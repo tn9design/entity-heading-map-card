@@ -1,4 +1,4 @@
-/* Advanced Map Card 3000 0.3.0-beta.1 */
+/* Advanced Map Card 3000 0.3.0-beta.1 isolated beta */
 /* MapLibre GL JS 6.4.1
 ==================
 Copyright (c) 2023, MapLibre contributors
@@ -24523,7 +24523,7 @@ async function createHaBackground({ L: L3, map, hass, dark, labels, onStatus, in
 }
 
 // src/entity-heading-map-card.js
-var CARD_TAG = "entity-heading-map-card";
+var CARD_TAG = "entity-heading-map-card-beta";
 var LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 var LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 var leafletPromise;

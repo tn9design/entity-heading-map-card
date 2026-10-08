@@ -1,11 +1,13 @@
 {
   "name": "entity-heading-map-card",
-  "version": "0.2.0",
+  "version": "0.3.0-beta.1",
   "description": "A Home Assistant Lovelace map card with heading-aware markers, subtitle modes, and speed-based overlays.",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "node tests/card-behavior.cjs"
+    "test": "node tests/card-behavior.cjs && node tests/ha-map-provider.mjs",
+    "build:beta": "node scripts/build.mjs --beta",
+    "test:browser:serve": "node tests/serve-vector-browser.cjs"
   },
   "keywords": [
     "home-assistant",
@@ -14,5 +16,12 @@
     "leaflet",
     "map"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@maplibre/maplibre-gl-leaflet": "0.1.4",
+    "maplibre-gl": "6.4.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }
