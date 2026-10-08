@@ -1042,11 +1042,16 @@ class EntityHeadingMapCard extends HTMLElement {
           inset: 0;
           z-index: 1;
           overflow: hidden;
-          background: #eef0e9;
-
+          background:
+            linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.92) 18% 20.4%, transparent 20.4% 100%),
+            linear-gradient(0deg, transparent 0 73%, rgba(255, 255, 255, 0.92) 73% 75.8%, transparent 75.8% 100%),
+            linear-gradient(90deg, transparent 0 57%, rgba(255, 255, 255, 0.88) 57% 59.2%, transparent 59.2% 100%),
+            linear-gradient(33deg, transparent 0 78%, rgba(255, 255, 255, 0.86) 78% 80.2%, transparent 80.2% 100%),
+            radial-gradient(circle at 22% 28%, rgba(208, 230, 202, 0.38), transparent 18%),
+            radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.35), transparent 18%),
+            linear-gradient(180deg, #faf8f3, #f3efe8);
         }
 
-        .preview-map { position: absolute; inset: 0; width: 100%; height: 100%; }
         .preview-overlay[hidden] {
           display: none;
         }
@@ -1498,14 +1503,6 @@ class EntityHeadingMapCard extends HTMLElement {
           <div id="map-shell" class="map-shell">
             <div id="map"></div>
             <div id="preview-overlay" class="preview-overlay" hidden>
-              <svg class="preview-map" viewBox="0 0 320 280" preserveAspectRatio="none" aria-hidden="true">
-                <rect width="320" height="280" fill="#f1f0e9"/>
-                <rect x="212" y="28" width="92" height="82" rx="8" fill="#dae8d3"/>
-                <path d="M0 140H320 M100 0V280 M0 245H320" stroke="#d8d6ce" stroke-width="22"/>
-                <path d="M0 140H320 M100 0V280 M0 245H320" stroke="#fff" stroke-width="17"/>
-                <g fill="#e2dfd6" stroke="#d4d0c4"><rect x="16" y="28" width="62" height="38"/><rect x="18" y="82" width="58" height="34"/><rect x="122" y="34" width="62" height="66"/><rect x="18" y="170" width="60" height="48"/><rect x="122" y="172" width="65" height="48"/><rect x="212" y="174" width="88" height="45"/></g>
-                <g fill="#7e8778" font-family="sans-serif" font-size="9"><text x="216" y="72">Park</text><text x="196" y="144">Maple Street</text><text x="16" y="248">Oak Street</text></g>
-              </svg>
               <div id="preview-controls" class="preview-controls" aria-hidden="true">
                 <div class="preview-control">+</div>
                 <div class="preview-control">−</div>
@@ -1739,8 +1736,8 @@ class EntityHeadingMapCard extends HTMLElement {
     const iconEl = this.shadowRoot.getElementById("icon");
     const zoomControlPosition = this._getZoomControlPosition();
     const showHeader = this._config?.show_header !== false;
-    const previewTitle = firstNonEmptyString(this._config?.title, this._config?.name, "Demo Vehicle");
-    const previewSubtitle = showHeader ? "Heading 90° · Demo" : "";
+    const previewTitle = firstNonEmptyString(this._config?.title, this._config?.name, "Onyx");
+    const previewSubtitle = showHeader ? "Parked" : "";
     const previewIcon = firstNonEmptyString(this._config?.icon, "mdi:car-electric");
 
     cardEl.dataset.previewMode = "true";
@@ -1772,15 +1769,7 @@ class EntityHeadingMapCard extends HTMLElement {
     previewMarker.classList.toggle("has-tooltip", this._config?.marker_tooltip_mode === "name");
     previewMarker.classList.toggle("tooltip-pinned", this._config?.marker_tooltip_mode === "name");
     previewMarker.style.setProperty("--marker-color", normalizeHex(this._config.color));
-    previewMarker.style.setProperty("--heading", "90deg");
-    const speedometer = this.shadowRoot.getElementById("speedometer");
-    speedometer.hidden = this._config.show_speedometer !== true;
-    speedometer.classList.toggle("classic", false);
-    speedometer.classList.toggle("gauge", true);
-    speedometer.classList.toggle("parked", false);
-    this.shadowRoot.getElementById("speedometer-value").textContent = "24";
-    this.shadowRoot.getElementById("speedometer-unit").textContent = "MPH";
-    this._updateGaugeSegments(speedometer, {speed:24, unit:"mph", value:"24"});
+    previewMarker.style.setProperty("--heading", "72deg");
     previewMarker.style.setProperty(
       "--marker-size",
       `${Math.max(this._config.marker_size ?? DEFAULT_MARKER_SIZE, 32)}px`
@@ -3032,13 +3021,13 @@ class EntityHeadingMapCard extends HTMLElement {
       zoom: DEFAULT_ZOOM,
       show_zoom_controls: true,
       show_recenter_button: true,
-      show_speedometer: true,
+      show_speedometer: false,
       auto_zoom_by_speed: false,
       zoom_control_position: "bottomleft",
       marker_size: DEFAULT_MARKER_SIZE,
       color: DEFAULT_MARKER_COLOR,
       style_preset: "mushroom",
-      speedometer_style: "gauge",
+      speedometer_style: "classic",
       marker_tooltip_mode: "off",
       tile_style: "default",
       show_map_labels: true,
